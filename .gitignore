@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# secrets — never commit these
+.streamlit/secrets.toml
+.env
+credentials.json
+service_account.json
+token.pickle
+*.json.local
+
+# local data / logs
+data/
+logs/
