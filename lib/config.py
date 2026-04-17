@@ -72,7 +72,7 @@ def _from_env() -> dict[str, Any]:
 def get_config() -> dict[str, Any]:
     """優先讀 Streamlit secrets，沒有就 fallback 到環境變數。"""
     cfg = _from_streamlit_secrets()
-    if cfg and cfg.get('openai_api_key'):
+    if cfg and (cfg.get('openai_api_key') or cfg.get('gcp_service_account')):
         return cfg
     return _from_env()
 
