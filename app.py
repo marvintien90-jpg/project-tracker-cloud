@@ -162,13 +162,12 @@ with st.sidebar:
 # ============================================================
 # 頂部導航列（取代 radio — 桌面 & 手機都友善）
 # ============================================================
-NAV_LABELS = ['專案總覽', '匯入', '統計', '週報', 'Line']
-NAV_ICONS = ['kanban-fill', 'cloud-arrow-down-fill', 'graph-up-arrow', 'journal-text', 'chat-dots-fill']
+NAV_LABELS = ['🍲 專案總覽', '📥 匯入', '📊 統計', '📒 週報', '💬 Line']
 
 selected = option_menu(
     menu_title=None,
     options=NAV_LABELS,
-    icons=NAV_ICONS,
+    icons=None,
     orientation='horizontal',
     default_index=0,
     key='main_nav',
@@ -182,10 +181,10 @@ selected = option_menu(
             'backdrop-filter': 'blur(10px)',
             'margin-bottom': '24px',
         },
-        'icon': {'color': COLORS['ink_soft'], 'font-size': '18px'},
+        'icon': {'display': 'none'},
         'nav-link': {
             'font-family': "'Noto Sans TC', sans-serif",
-            'font-size': '0.95rem',
+            'font-size': '1rem',
             'font-weight': '600',
             'color': COLORS['ink_soft'],
             'text-align': 'center',
@@ -205,11 +204,11 @@ selected = option_menu(
 
 # 映射導航標籤到內部判斷字串
 page = {
-    '專案總覽': '📊 專案總覽',
-    '匯入': '📥 匯入會議記錄',
-    '統計': '📈 統計報表',
-    '週報': '📋 週報',
-    'Line': '📱 Line 提醒',
+    '🍲 專案總覽': '📊 專案總覽',
+    '📥 匯入': '📥 匯入會議記錄',
+    '📊 統計': '📈 統計報表',
+    '📒 週報': '📋 週報',
+    '💬 Line': '📱 Line 提醒',
 }[selected]
 
 
