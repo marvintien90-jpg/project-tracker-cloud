@@ -374,7 +374,18 @@ _PWA_HEAD = """
 <meta name="apple-mobile-web-app-title" content="專案追蹤">
 <link rel="apple-touch-icon" href="/app/static/logo.svg">
 <link rel="icon" type="image/svg+xml" href="/app/static/favicon.svg">
+<!-- Bootstrap Icons (扁平線條 icon) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 """
+
+
+# ============================================================
+# Icon helper
+# ============================================================
+def icon(name: str, size: str = '1em', color: str = None) -> str:
+    """產生 Bootstrap Icon HTML。name 不含 'bi-' 前綴。"""
+    color_style = f'color:{color};' if color else ''
+    return f'<i class="bi bi-{name}" style="font-size:{size};{color_style}"></i>'
 
 
 def apply_brand() -> None:

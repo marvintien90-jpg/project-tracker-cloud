@@ -83,7 +83,7 @@ except Exception as e:
     st.markdown(f"""
     <div style="max-width:600px; margin:60px auto; background:white; border-radius:18px;
                 padding:32px; box-shadow:0 8px 24px rgba(0,0,0,0.08); text-align:center;">
-      <div style="font-size:3rem;">⚠️</div>
+      <div style="font-size:3rem; line-height:1;"><i class="bi bi-exclamation-triangle" style="color:#DC2626;"></i></div>
       <div style="font-size:1.1rem; font-weight:700; margin-top:12px; color:#DC2626;">無法連線 Google Sheets</div>
       <div style="color:#6B7280; margin-top:8px; font-size:0.9rem;">{type(e).__name__}: {str(e)[:200]}</div>
       <div style="color:#6B7280; margin-top:16px; font-size:0.85rem; line-height:1.6; text-align:left; background:#FAF7F2; padding:14px 16px; border-radius:10px;">
@@ -108,11 +108,16 @@ purple_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.g
 red_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'red')
 
 with st.sidebar:
-    # Logo + 標題
-    st.markdown("""
-    <div style="text-align:center; padding: 12px 0 8px;">
-      <div style="font-size:2.8rem; line-height:1;">🍲</div>
-      <div style="font-family: 'Noto Sans TC'; font-weight:900; font-size:1.1rem; color:#FAF7F2; margin-top:4px; letter-spacing:0.02em;">
+    # Logo + 標題（線條 icon，非 emoji）
+    st.markdown(f"""
+    <div style="text-align:center; padding: 14px 0 10px;">
+      <div style="display:inline-flex; align-items:center; justify-content:center;
+                  width:56px; height:56px; border-radius:14px;
+                  background:linear-gradient(135deg, {COLORS['primary_light']}, {COLORS['primary']});
+                  box-shadow: 0 4px 14px rgba(232,93,58,0.45);">
+        <i class="bi bi-kanban" style="color:white; font-size:1.9rem;"></i>
+      </div>
+      <div style="font-family: 'Noto Sans TC'; font-weight:900; font-size:1.05rem; color:#FAF7F2; margin-top:10px; letter-spacing:0.02em;">
         總部專案追蹤助理
       </div>
       <div style="font-size:0.72rem; color:#A09B95; margin-top:2px;">雲端版 v1.1</div>
@@ -120,31 +125,39 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown('<hr style="border-color:#333; margin:12px 0;">', unsafe_allow_html=True)
 
-    # 統計摘要卡（側邊欄深底配高對比）
+    # 統計摘要卡（側邊欄深底配高對比，用線條 icon 代替彩色 emoji dot）
     st.markdown(f"""
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
       <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center;">
         <div style="font-size:1.6rem; font-weight:800; color:#FAF7F2; font-family:'Inter';">{total}</div>
-        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">總事項</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="bi bi-list-task"></i> 總事項
+        </div>
       </div>
       <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['complete']};">
         <div style="font-size:1.6rem; font-weight:800; color:#FAF7F2; font-family:'Inter';">{completed_count}</div>
-        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">已完成</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="bi bi-check-circle"></i> 已完成
+        </div>
       </div>
       <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['red']};">
         <div style="font-size:1.6rem; font-weight:800; color:#FCA5A5; font-family:'Inter';">{red_count}</div>
-        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">🔴 緊急</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="bi bi-exclamation-triangle" style="color:{COLORS['red']};"></i> 緊急
+        </div>
       </div>
       <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['purple']};">
         <div style="font-size:1.6rem; font-weight:800; color:#C4B5FD; font-family:'Inter';">{purple_count}</div>
-        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">🟣 逾期</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="bi bi-clock-history" style="color:{COLORS['purple']};"></i> 逾期
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown('<hr style="border-color:#333; margin:12px 0;">', unsafe_allow_html=True)
 
-    if st.button('🔄 重新載入資料', use_container_width=True):
+    if st.button('重新載入資料', use_container_width=True):
         refresh_data()
         st.rerun()
 
@@ -152,8 +165,9 @@ with st.sidebar:
     <div style="margin-top:16px; padding:10px 12px; background:rgba(255,255,255,0.05); border-radius:8px;">
       <div style="font-size:0.65rem; color:#A09B95; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">最後更新</div>
       <div style="font-size:0.85rem; color:{COLORS['cream']}; margin-top:2px; font-family:'Inter';">{datetime.now().strftime('%Y/%m/%d %H:%M')}</div>
-      <div style="font-size:0.65rem; color:#A09B95; margin-top:6px; line-height:1.5;">
-        ⚡ 自動掃描每小時一次<br>🔁 Sheet 快取 5 分鐘
+      <div style="font-size:0.65rem; color:#A09B95; margin-top:6px; line-height:1.7;">
+        <div style="display:flex; align-items:center; gap:4px;"><i class="bi bi-lightning-charge"></i> 自動掃描每小時一次</div>
+        <div style="display:flex; align-items:center; gap:4px;"><i class="bi bi-arrow-repeat"></i> Sheet 快取 5 分鐘</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -162,12 +176,13 @@ with st.sidebar:
 # ============================================================
 # 頂部導航列（取代 radio — 桌面 & 手機都友善）
 # ============================================================
-NAV_LABELS = ['🍲 專案總覽', '📥 匯入', '📊 統計', '📒 週報', '💬 Line']
+NAV_LABELS = ['專案總覽', '匯入', '統計', '週報', 'Line']
+NAV_ICONS = ['kanban', 'cloud-arrow-down', 'bar-chart-line', 'journal-text', 'chat-left-dots']
 
 selected = option_menu(
     menu_title=None,
     options=NAV_LABELS,
-    icons=None,
+    icons=NAV_ICONS,
     orientation='horizontal',
     default_index=0,
     key='main_nav',
@@ -181,10 +196,10 @@ selected = option_menu(
             'backdrop-filter': 'blur(10px)',
             'margin-bottom': '24px',
         },
-        'icon': {'display': 'none'},
+        'icon': {'color': COLORS['ink_soft'], 'font-size': '17px'},
         'nav-link': {
             'font-family': "'Noto Sans TC', sans-serif",
-            'font-size': '1rem',
+            'font-size': '0.95rem',
             'font-weight': '600',
             'color': COLORS['ink_soft'],
             'text-align': 'center',
@@ -204,20 +219,20 @@ selected = option_menu(
 
 # 映射導航標籤到內部判斷字串
 page = {
-    '🍲 專案總覽': '📊 專案總覽',
-    '📥 匯入': '📥 匯入會議記錄',
-    '📊 統計': '📈 統計報表',
-    '📒 週報': '📋 週報',
-    '💬 Line': '📱 Line 提醒',
+    '專案總覽': '專案總覽',
+    '匯入': '匯入會議記錄',
+    '統計': '統計報表',
+    '週報': '週報',
+    'Line': 'Line 提醒',
 }[selected]
 
 
 # ============================================================
 # 1) 專案總覽（含首頁儀表板）
 # ============================================================
-if page == '📊 專案總覽':
+if page == '專案總覽':
     if not tasks:
-        st.title('📊 專案總覽')
+        st.title('專案總覽')
         st.info('尚無任何專案，請先到「匯入會議記錄」頁面匯入資料')
     else:
         # ---------- 首頁儀表板 ----------
@@ -231,7 +246,9 @@ if page == '📊 專案總覽':
         st.markdown(f"""
         <div style="display:flex; align-items:center; gap:12px; margin:28px 0 16px;">
           <div style="flex:1; height:1px; background:{COLORS['line']};"></div>
-          <div style="font-weight:700; color:{COLORS['ink']}; font-size:1.1rem;">📋 全部任務</div>
+          <div style="font-weight:700; color:{COLORS['ink']}; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
+            <i class="bi bi-list-check"></i> 全部任務
+          </div>
           <div style="flex:1; height:1px; background:{COLORS['line']};"></div>
         </div>
         """, unsafe_allow_html=True)
@@ -240,14 +257,14 @@ if page == '📊 專案總覽':
         col_s1, col_s2 = st.columns([3, 2])
         with col_s1:
             search_q = st.text_input(
-                '🔍 搜尋任務', '',
+                '搜尋任務', '',
                 placeholder='搜尋任務名稱 / 負責人 / 目的…',
                 key='search_q', label_visibility='collapsed',
             )
         with col_s2:
             filter_status = st.selectbox(
                 '燈號',
-                ['全部燈號', '🟣 已逾期', '🔴 緊急', '🟡 注意', '🟢 正常', '✅ 已完成'],
+                ['全部燈號', '已逾期', '緊急', '注意', '正常', '已完成'],
                 key='filter_status', label_visibility='collapsed',
             )
 
@@ -340,7 +357,7 @@ if page == '📊 專案總覽':
 
             col_save, col_del, col_cancel = st.columns([1.2, 1.2, 1])
             with col_save:
-                if st.button('💾 儲存', type='primary', use_container_width=True):
+                if st.button('儲存變更', type='primary', use_container_width=True):
                     updated = dict(task)
                     updated.update({
                         'what': new_what, 'who_dept': new_dept, 'who_person': new_person,
@@ -358,7 +375,7 @@ if page == '📊 專案總覽':
                     except Exception as e:
                         st.error(f'儲存失敗：{e}')
             with col_del:
-                if st.button('🗑️ 刪除', use_container_width=True):
+                if st.button('刪除', use_container_width=True):
                     try:
                         if delete_task(task.get('task_id', '')):
                             refresh_data()
@@ -373,8 +390,8 @@ if page == '📊 專案總覽':
         if not filtered:
             st.markdown(f"""
             <div style="text-align:center; padding:40px 20px; color:{COLORS['ink_soft']};">
-              <div style="font-size:3rem;">🔍</div>
-              <div style="margin-top:8px; font-size:0.95rem;">沒有符合條件的任務</div>
+              <i class="bi bi-search" style="font-size:2.6rem; color:{COLORS['line']};"></i>
+              <div style="margin-top:10px; font-size:0.95rem;">沒有符合條件的任務</div>
               <div style="font-size:0.8rem; color:#999; margin-top:4px;">試試調整篩選條件</div>
             </div>
             """, unsafe_allow_html=True)
@@ -421,22 +438,22 @@ if page == '📊 專案總覽':
                         <div style="width:{progress}%; height:100%; background:linear-gradient(90deg,{COLORS['primary_light']},{COLORS['primary']}); border-radius:999px; transition:width 0.4s;"></div>
                       </div>
                       <div style="font-size:0.8rem; font-weight:700; font-family:'Inter'; color:{COLORS['ink']}; min-width:40px; text-align:right;">{progress}%</div>
-                      <div style="font-size:0.75rem; color:{COLORS['ink_soft']}; min-width:90px; text-align:right;">📅 {task.get('when_end','未設定')}</div>
+                      <div style="font-size:0.75rem; color:{COLORS['ink_soft']}; min-width:90px; text-align:right; display:flex; align-items:center; justify-content:flex-end; gap:4px;"><i class="bi bi-calendar-event"></i> {task.get('when_end','未設定')}</div>
                     </div>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
             with btn_col:
                 st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-                if st.button('✏️', key=f'edit_{i}_{task.get("task_id","")[:6]}',
-                             help='編輯', use_container_width=True):
+                if st.button('編輯', key=f'edit_{i}_{task.get("task_id","")[:6]}',
+                             help='編輯任務', use_container_width=True):
                     _edit_dialog(task)
 
 
 # ============================================================
 # 2) 匯入會議記錄
 # ============================================================
-elif page == '📥 匯入會議記錄':
+elif page == '匯入會議記錄':
     st.markdown(f"""
     <div style="margin-bottom:18px;">
       <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
@@ -446,19 +463,20 @@ elif page == '📥 匯入會議記錄':
         從 Google Drive 抓取 .doc / .docx / Google Doc，AI 自動解析 5W2H 行動事項
       </div>
     </div>
-    <div style="background:rgba(232,93,58,0.08); border-left:3px solid {COLORS['primary']}; border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:0.88rem; color:{COLORS['ink']};">
-      ⏰ 系統每小時由 GitHub Actions 自動掃描新檔。本頁供你立刻手動匯入。
+    <div style="background:rgba(232,93,58,0.08); border-left:3px solid {COLORS['primary']}; border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:0.88rem; color:{COLORS['ink']}; display:flex; align-items:center; gap:10px;">
+      <i class="bi bi-clock" style="color:{COLORS['primary']};"></i>
+      系統每小時由 GitHub Actions 自動掃描新檔。本頁供你立刻手動匯入。
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button('🔄 掃描所有子資料夾', type='primary', use_container_width=True):
+    if st.button('掃描所有子資料夾', type='primary', use_container_width=True):
         with st.spinner('正在掃描 Google Drive…'):
             try:
                 service = get_drive_service()
                 from lib.config import get_drive_folder_id
                 files = list_doc_files(service, get_drive_folder_id())
                 st.session_state['drive_files'] = files
-                st.toast(f'✅ 找到 {len(files)} 個會議記錄檔案')
+                st.toast(f'找到 {len(files)} 個會議記錄檔案')
             except Exception as e:
                 st.error(f'掃描失敗：{e}')
 
@@ -467,7 +485,7 @@ elif page == '📥 匯入會議記錄':
         st.markdown(f"<div style='color:{COLORS['ink_soft']}; font-size:0.85rem; margin:14px 0 6px;'>Drive 中共有 <b style='color:{COLORS['ink']};'>{len(files)}</b> 份可解析文件</div>", unsafe_allow_html=True)
         selected = st.selectbox('選擇要匯入的會議記錄', [f['name'] for f in files], label_visibility='collapsed')
         selected_file = next(f for f in files if f['name'] == selected)
-        if st.button('🤖 AI 解析並匯入', type='primary', use_container_width=True):
+        if st.button('AI 解析並匯入', type='primary', use_container_width=True):
             with st.spinner('AI 正在解析會議記錄，請稍候…'):
                 try:
                     service = get_drive_service()
@@ -480,8 +498,7 @@ elif page == '📥 匯入會議記錄':
                         t['imported_at'] = now
                     n = append_tasks(new_tasks)
                     refresh_data()
-                    st.toast(f'✨ 成功匯入 {n} 個行動事項')
-                    st.balloons()
+                    st.toast(f'成功匯入 {n} 個行動事項')
                     st.session_state['parsed_tasks'] = new_tasks
                 except Exception as e:
                     st.error(f'解析失敗：{e}')
@@ -508,10 +525,11 @@ elif page == '📥 匯入會議記錄':
                 <span class="brand-tag primary">{t.get('who_dept','')}</span>
                 <span class="brand-tag">{t.get('who_person','')}</span>
                 <span class="brand-tag {color}">{status_text}</span>
-                <span class="brand-tag">📅 {t.get('when_end','未設定')}</span>
+                <span class="brand-tag"><i class="bi bi-calendar-event" style="margin-right:4px;"></i>{t.get('when_end','未設定')}</span>
               </div>
-              <div style="margin-top:8px; font-size:0.82rem; color:{COLORS['ink_soft']}; line-height:1.5;">
-                💡 {t.get('why','')}
+              <div style="margin-top:8px; font-size:0.82rem; color:{COLORS['ink_soft']}; line-height:1.5; display:flex; align-items:flex-start; gap:6px;">
+                <i class="bi bi-lightbulb" style="color:{COLORS['primary']}; margin-top:2px;"></i>
+                <span>{t.get('why','')}</span>
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -520,7 +538,7 @@ elif page == '📥 匯入會議記錄':
 # ============================================================
 # 3) 統計報表（Plotly 互動圖 + 部門燈號堆疊 + 倒數 timeline）
 # ============================================================
-elif page == '📈 統計報表':
+elif page == '統計報表':
     st.markdown(f"""
     <div style="margin-bottom:18px;">
       <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
@@ -548,10 +566,10 @@ elif page == '📈 統計報表':
             st.plotly_chart(progress_trend(history), use_container_width=True)
         else:
             st.markdown(f"""
-            <div style="background:white; border-radius:14px; padding:20px; text-align:center;
+            <div style="background:white; border-radius:14px; padding:26px 20px; text-align:center;
                         border:1px dashed {COLORS['line']}; color:{COLORS['ink_soft']};">
-              <div style="font-size:2rem;">📈</div>
-              <div style="margin-top:6px;">趨勢圖需要 2 天以上的資料，目前累積中…</div>
+              <i class="bi bi-graph-up-arrow" style="font-size:1.8rem; color:{COLORS['line']};"></i>
+              <div style="margin-top:8px;">趨勢圖需要 2 天以上的資料，目前累積中…</div>
               {f"<div style='font-size:0.85rem; margin-top:6px;'>今日：完成率 {history[-1].get('completion_rate',0)}% · 平均進度 {history[-1].get('avg_progress',0)}%</div>" if history else ''}
             </div>
             """, unsafe_allow_html=True)
@@ -614,9 +632,9 @@ elif page == '📈 統計報表':
             st.plotly_chart(week_due_timeline(week_rows), use_container_width=True)
         else:
             st.markdown(f"""
-            <div style="background:white; border-radius:14px; padding:20px; text-align:center; color:{COLORS['ink_soft']};">
-              <div style="font-size:2rem;">✨</div>
-              <div style="margin-top:6px;">本週無逾期或即將到期事項</div>
+            <div style="background:white; border-radius:14px; padding:26px 20px; text-align:center; color:{COLORS['ink_soft']};">
+              <i class="bi bi-check2-circle" style="font-size:1.8rem; color:{COLORS['green']};"></i>
+              <div style="margin-top:8px;">本週無逾期或即將到期事項</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -625,7 +643,7 @@ elif page == '📈 統計報表':
         # ---------- 匯出 ----------
         excel_data = export_to_excel(tasks)
         st.download_button(
-            label='📥 下載完整專案追蹤表（.xlsx）',
+            label='下載完整專案追蹤表（.xlsx）',
             data=excel_data,
             file_name=f'專案追蹤_{date.today()}.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -637,7 +655,7 @@ elif page == '📈 統計報表':
 # ============================================================
 # 4) 週報
 # ============================================================
-elif page == '📋 週報':
+elif page == '週報':
     st.markdown(f"""
     <div style="margin-bottom:18px;">
       <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
@@ -652,24 +670,27 @@ elif page == '📋 週報':
     if not tasks:
         st.info('尚無資料，請先匯入會議記錄')
     else:
-        if st.button('📊 產出本週週報', type='primary', use_container_width=True):
+        if st.button('產出本週週報', type='primary', use_container_width=True):
             report = generate_weekly_report(tasks)
             st.session_state['weekly_report'] = report
-            st.toast('✨ 週報已產出')
+            st.toast('週報已產出')
 
         if 'weekly_report' in st.session_state:
             report = st.session_state['weekly_report']
-            st.markdown(f"<div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']};'>📄 週報內容（右上角可一鍵複製）</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']}; display:flex; align-items:center; gap:8px;'>
+              <i class="bi bi-file-earmark-text"></i> 週報內容（右上角可一鍵複製）
+            </div>""", unsafe_allow_html=True)
             st.code(report, language=None)
             col_d1, col_d2 = st.columns(2)
             with col_d1:
                 st.download_button(
-                    '⬇️ 下載 .txt', report,
+                    '下載 .txt', report,
                     file_name=f'週報_{date.today()}.txt', mime='text/plain',
                     use_container_width=True,
                 )
             with col_d2:
-                if st.button('🔄 重新產出', use_container_width=True):
+                if st.button('重新產出', use_container_width=True, key='weekly_regen'):
                     del st.session_state['weekly_report']
                     st.rerun()
 
@@ -677,7 +698,7 @@ elif page == '📋 週報':
 # ============================================================
 # 5) Line 提醒
 # ============================================================
-elif page == '📱 Line 提醒':
+elif page == 'Line 提醒':
     st.markdown(f"""
     <div style="margin-bottom:18px;">
       <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
@@ -689,24 +710,27 @@ elif page == '📱 Line 提醒':
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button('🔔 產出今日紅燈／紫燈提醒', type='primary', use_container_width=True):
+    if st.button('產出今日緊急／逾期提醒', type='primary', use_container_width=True):
         msg = generate_line_message(tasks)
         st.session_state['line_msg'] = msg
-        st.toast('✨ 訊息已產出')
+        st.toast('訊息已產出')
 
     if 'line_msg' in st.session_state:
         msg = st.session_state['line_msg']
-        st.markdown(f"<div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']};'>💬 Line 訊息（右上角可一鍵複製）</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']}; display:flex; align-items:center; gap:8px;'>
+          <i class="bi bi-chat-left-dots"></i> Line 訊息（右上角可一鍵複製）
+        </div>""", unsafe_allow_html=True)
         st.code(msg, language=None)
         col_d1, col_d2 = st.columns(2)
         with col_d1:
             st.download_button(
-                '⬇️ 下載 .txt', msg,
+                '下載 .txt', msg,
                 file_name=f'line提醒_{date.today()}.txt', mime='text/plain',
                 use_container_width=True,
             )
         with col_d2:
-            if st.button('🔄 重新產出', use_container_width=True):
+            if st.button('重新產出', use_container_width=True, key='line_regen'):
                 del st.session_state['line_msg']
                 st.rerun()
 
@@ -714,7 +738,7 @@ elif page == '📱 Line 提醒':
 # ============================================================
 # 浮動操作按鈕 FAB（全站顯示）
 # ============================================================
-@st.dialog('➕ 快速新增任務', width='large')
+@st.dialog('快速新增任務', width='large')
 def _quick_add_dialog():
     st.markdown('<div style="color:#666; font-size:0.85rem; margin-bottom:10px;">直接手動建立一筆任務（不經過 AI 解析）</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
@@ -733,7 +757,7 @@ def _quick_add_dialog():
         q_end = st.date_input('截止日期', None, format='YYYY-MM-DD')
     q_progress = st.slider('起始進度 %', 0, 100, 0)
 
-    if st.button('💾 新增任務', type='primary', use_container_width=True):
+    if st.button('新增任務', type='primary', use_container_width=True):
         if not q_what.strip():
             st.error('任務名稱必填')
             return
@@ -753,23 +777,15 @@ def _quick_add_dialog():
         try:
             append_tasks([new])
             refresh_data()
-            st.toast('✨ 任務已新增')
+            st.toast('任務已新增')
             st.rerun()
         except Exception as e:
             st.error(f'新增失敗：{e}')
 
 
-# 浮動按鈕容器（CSS 會把它釘到右下）
+# 浮動按鈕容器（CSS 會把它釘到右下，線條 icon 風格）
 st.markdown("""
 <style>
-/* FAB 定位：右下浮動 */
-[data-testid="stPopover"] > div:first-child {
-  /* reset */
-}
-div[data-testid="column"]:has(> div > div > [data-testid="stPopover"].fab-anchor) {
-  /* for future use */
-}
-/* 標記容器：用 attribute 選擇器鎖定 */
 .fab-slot {
   position: fixed !important;
   bottom: 28px;
@@ -779,16 +795,27 @@ div[data-testid="column"]:has(> div > div > [data-testid="stPopover"].fab-anchor
 }
 .fab-slot button {
   background: linear-gradient(135deg, #F27D5A, #D04020) !important;
-  color: white !important;
+  color: transparent !important;
   border: none !important;
   border-radius: 50% !important;
   width: 60px !important;
   height: 60px !important;
-  font-size: 1.6rem !important;
-  font-weight: 800 !important;
+  font-size: 0 !important;
   padding: 0 !important;
+  position: relative !important;
   box-shadow: 0 8px 24px rgba(232, 93, 58, 0.45), 0 0 0 6px rgba(232, 93, 58, 0.1) !important;
   transition: all 0.2s !important;
+}
+.fab-slot button::before {
+  content: "\\f4fe"; /* bi-plus-lg unicode */
+  font-family: "bootstrap-icons" !important;
+  font-size: 1.8rem;
+  color: white;
+  font-weight: normal;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  line-height: 1;
 }
 .fab-slot button:hover {
   transform: translateY(-2px) scale(1.05) !important;
@@ -802,19 +829,19 @@ div[data-testid="column"]:has(> div > div > [data-testid="stPopover"].fab-anchor
   .fab-slot button {
     width: 52px !important;
     height: 52px !important;
-    font-size: 1.4rem !important;
+  }
+  .fab-slot button::before {
+    font-size: 1.5rem;
   }
 }
 </style>
 <div class="fab-slot" id="fab-anchor"></div>
 <script>
-// 把下一個 button 移動進 fab-slot（延遲執行等 Streamlit 渲染完）
 (function moveToFab(){
   const anchor = document.getElementById('fab-anchor');
   const buttons = document.querySelectorAll('button[kind="primary"]');
-  // 找到最後一個含「＋」符號的按鈕作為 FAB
   for (const b of buttons) {
-    if (b.textContent.trim() === '➕' && !b.dataset.fabMoved) {
+    if (b.textContent.trim() === '__FAB_NEW__' && !b.dataset.fabMoved) {
       b.dataset.fabMoved = '1';
       anchor.appendChild(b.closest('[data-testid="stButton"]') || b);
       break;
@@ -825,6 +852,5 @@ div[data-testid="column"]:has(> div > div > [data-testid="stPopover"].fab-anchor
 </script>
 """, unsafe_allow_html=True)
 
-# 注意：Streamlit 元件渲染有順序，FAB 觸發鍵要放在這裡（會被 JS 搬到 fab-slot）
-if st.button('➕', key='fab_main', type='primary', help='快速新增任務'):
+if st.button('__FAB_NEW__', key='fab_main', type='primary', help='快速新增任務'):
     _quick_add_dialog()

@@ -79,7 +79,7 @@ def compute_metrics(tasks: list[dict[str, Any]]) -> dict:
 def render_hero_kpis(m: dict) -> None:
     c1, c2, c3, c4 = st.columns(4)
 
-    def hero_card(col, icon, label, value, suffix, accent, extra=''):
+    def hero_card(col, bi_icon, label, value, suffix, accent, extra=''):
         col.markdown(f"""
         <div style="
           background: rgba(255,255,255,0.7);
@@ -95,7 +95,9 @@ def render_hero_kpis(m: dict) -> None:
           <div style="position:absolute; top:-10px; right:-10px; width:80px; height:80px; background:{accent}; opacity:0.1; border-radius:50%;"></div>
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div style="font-size:0.8rem; color:{COLORS['ink_soft']}; font-weight:500;">{label}</div>
-            <div style="font-size:1.2rem;">{icon}</div>
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; background:{accent}1F;">
+              <i class="bi bi-{bi_icon}" style="font-size:1.1rem; color:{accent};"></i>
+            </div>
           </div>
           <div style="font-family:'Inter',sans-serif; font-size:2.6rem; font-weight:800; color:{COLORS['ink']}; line-height:1.1; margin-top:8px; font-variant-numeric: tabular-nums;">
             {value}<span style="font-size:1rem; color:{COLORS['ink_soft']}; margin-left:4px; font-weight:500;">{suffix}</span>
@@ -104,13 +106,13 @@ def render_hero_kpis(m: dict) -> None:
         </div>
         """, unsafe_allow_html=True)
 
-    hero_card(c1, '📋', '總追蹤事項', m['total'], '件', COLORS['primary'],
+    hero_card(c1, 'list-task', '總追蹤事項', m['total'], '件', COLORS['primary'],
               f"平均進度 {m['avg_progress']}%")
-    hero_card(c2, '✅', '完成率', m['completion_rate'], '%', COLORS['green'],
+    hero_card(c2, 'check-circle', '完成率', m['completion_rate'], '%', COLORS['green'],
               f"已完成 {m['completed']} 件")
-    hero_card(c3, '🔴', '緊急處理', m['urgent'], '件', COLORS['red'],
-              f"3 天內到期" if m['urgent'] else '本週無緊急')
-    hero_card(c4, '🟣', '已逾期', m['overdue'], '件', COLORS['purple'],
+    hero_card(c3, 'exclamation-triangle', '緊急處理', m['urgent'], '件', COLORS['red'],
+              "3 天內到期" if m['urgent'] else '本週無緊急')
+    hero_card(c4, 'clock-history', '已逾期', m['overdue'], '件', COLORS['purple'],
               '需立即補救' if m['overdue'] else '準時達成')
 
 
@@ -132,7 +134,9 @@ def render_focus_cards(m: dict) -> None:
           margin-bottom: 10px;
         ">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:1rem; color:{COLORS['purple']};">🟣 已逾期</div>
+            <div style="font-weight:700; font-size:1rem; color:{COLORS['purple']}; display:flex; align-items:center; gap:8px;">
+              <i class="bi bi-clock-history"></i> 已逾期
+            </div>
             <div style="background:{COLORS['purple']}; color:white; padding:2px 10px; border-radius:999px; font-size:0.75rem; font-weight:700;">{len(m['overdue_tasks'])}</div>
           </div>
         """, unsafe_allow_html=True)
@@ -159,7 +163,7 @@ def render_focus_cards(m: dict) -> None:
             if len(m['overdue_tasks']) > 5:
                 st.markdown(f"<div style='margin-top:8px; font-size:0.75rem; color:{COLORS['ink_soft']}; text-align:center;'>還有 {len(m['overdue_tasks'])-5} 件…</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color:#047857; font-size:0.9rem;'>✨ 目前沒有逾期事項</div>", unsafe_allow_html=True)
+            st.markdown(f"""<div style='color:#047857; font-size:0.9rem; display:flex; align-items:center; gap:6px;'><i class="bi bi-check2-circle"></i> 目前沒有逾期事項</div>""", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # 本週到期（紅黃）
@@ -174,7 +178,9 @@ def render_focus_cards(m: dict) -> None:
           margin-bottom: 10px;
         ">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:1rem; color:{COLORS['red']};">🔴 本週到期</div>
+            <div style="font-weight:700; font-size:1rem; color:{COLORS['red']}; display:flex; align-items:center; gap:8px;">
+              <i class="bi bi-exclamation-triangle"></i> 本週到期
+            </div>
             <div style="background:{COLORS['red']}; color:white; padding:2px 10px; border-radius:999px; font-size:0.75rem; font-weight:700;">{len(m['week_due'])}</div>
           </div>
         """, unsafe_allow_html=True)
@@ -187,7 +193,7 @@ def render_focus_cards(m: dict) -> None:
                     end = datetime.strptime(t['when_end'], '%Y-%m-%d').date()
                     days = (end - today).days
                     if days == 0:
-                        days_txt = '🔥 今天'
+                        days_txt = '今天到期'
                         color = COLORS['red']
                     elif days <= 3:
                         days_txt = f'剩 {days} 天'
@@ -209,7 +215,7 @@ def render_focus_cards(m: dict) -> None:
             if len(m['week_due']) > 5:
                 st.markdown(f"<div style='margin-top:8px; font-size:0.75rem; color:{COLORS['ink_soft']}; text-align:center;'>還有 {len(m['week_due'])-5} 件…</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color:#047857; font-size:0.9rem;'>✨ 本週無事項到期</div>", unsafe_allow_html=True)
+            st.markdown(f"""<div style='color:#047857; font-size:0.9rem; display:flex; align-items:center; gap:6px;'><i class="bi bi-check2-circle"></i> 本週無事項到期</div>""", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -240,8 +246,8 @@ def _ai_summary_cached(total: int, completed: int, urgent: int, overdue: int,
             f"- 總追蹤事項：{total} 件\n"
             f"- 已完成：{completed} 件（完成率 {rate}%）\n"
             f"- 平均進度：{avg_progress}%\n"
-            f"- 🔴 緊急（3 天內到期）：{urgent} 件\n"
-            f"- 🟣 已逾期：{overdue} 件\n\n"
+            f"- 緊急（3 天內到期）：{urgent} 件\n"
+            f"- 已逾期：{overdue} 件\n\n"
             "前 3 個最急的事項：\n"
             f"{urgent_block}\n\n"
             "請直接給那段敘述，不要多餘前後文。"
@@ -277,13 +283,13 @@ def render_ai_summary(m: dict) -> None:
       overflow: hidden;
     ">
       <div style="position:absolute; top:-30px; right:-30px; width:160px; height:160px; background:radial-gradient(circle, {COLORS['primary']}33, transparent); border-radius:50%;"></div>
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; position:relative;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; position:relative;">
         <div style="
           background: linear-gradient(135deg, {COLORS['primary_light']}, {COLORS['primary']});
-          width: 32px; height: 32px; border-radius: 8px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 1rem; box-shadow: 0 2px 8px rgba(232,93,58,0.35);
-        ">🤖</div>
+          width: 36px; height: 36px; border-radius: 10px;
+          display: inline-flex; align-items: center; justify-content: center;
+          box-shadow: 0 2px 8px rgba(232,93,58,0.35);
+        "><i class="bi bi-stars" style="color:white; font-size:1.2rem;"></i></div>
         <div>
           <div style="font-weight:700; font-size:0.95rem;">AI 老闆簡報</div>
           <div style="font-size:0.7rem; color:#A09B95;">{datetime.now().strftime('%Y/%m/%d %H:%M')} · 30 分快取</div>

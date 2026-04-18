@@ -78,11 +78,11 @@ def dept_status_stacked(dept_breakdown: dict) -> go.Figure:
     depts = list(dept_breakdown.keys())
 
     statuses = [
-        ('complete', '✅ 已完成', COLORS['complete']),
-        ('green', '🟢 正常', COLORS['green']),
-        ('yellow', '🟡 注意', COLORS['yellow']),
-        ('red', '🔴 緊急', COLORS['red']),
-        ('purple', '🟣 逾期', COLORS['purple']),
+        ('complete', '已完成', COLORS['complete']),
+        ('green', '正常', COLORS['green']),
+        ('yellow', '注意', COLORS['yellow']),
+        ('red', '緊急', COLORS['red']),
+        ('purple', '逾期', COLORS['purple']),
     ]
 
     fig = go.Figure()

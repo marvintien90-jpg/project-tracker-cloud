@@ -4,13 +4,38 @@
       <stop offset="0" stop-color="#F27D5A"/>
       <stop offset="1" stop-color="#D04020"/>
     </linearGradient>
-    <radialGradient id="gloss" cx="40%" cy="30%" r="50%">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+    <radialGradient id="gloss" cx="38%" cy="28%" r="55%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
   </defs>
+  <!-- background -->
   <rect width="128" height="128" rx="28" fill="url(#bg)"/>
   <rect width="128" height="128" rx="28" fill="url(#gloss)"/>
-  <text x="64" y="96" font-size="80" text-anchor="middle"
-        font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, EmojiOne Color, Android Emoji, sans-serif">🍲</text>
+
+  <!-- kanban board: 3 columns with cards -->
+  <!-- column 1 (left) -->
+  <rect x="18" y="36" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+  <rect x="18" y="52" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+  <rect x="18" y="68" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.55"/>
+
+  <!-- column 2 (center) -->
+  <rect x="51" y="36" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+  <rect x="51" y="52" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.55"/>
+
+  <!-- column 3 (right) -->
+  <rect x="84" y="36" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+  <rect x="84" y="52" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+  <rect x="84" y="68" width="26" height="10" rx="3" fill="none" stroke="white" stroke-width="3.5" stroke-opacity="0.9"/>
+
+  <!-- divider lines between columns -->
+  <line x1="47" y1="30" x2="47" y2="88" stroke="white" stroke-width="1.5" stroke-opacity="0.3"/>
+  <line x1="80" y1="30" x2="80" y2="88" stroke="white" stroke-width="1.5" stroke-opacity="0.3"/>
+
+  <!-- top header bar -->
+  <line x1="18" y1="30" x2="110" y2="30" stroke="white" stroke-width="2" stroke-opacity="0.4"/>
+
+  <!-- checkmark accent at bottom right -->
+  <circle cx="92" cy="92" r="14" fill="white" fill-opacity="0.18"/>
+  <polyline points="84,92 90,98 100,86" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
