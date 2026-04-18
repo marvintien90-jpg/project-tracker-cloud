@@ -465,42 +465,50 @@ elif page == '📥 匯入會議記錄':
 
 
 # ============================================================
-# 3) 統計報表
+# 3) 統計報表（Plotly 互動圖 + 部門燈號堆疊 + 倒數 timeline）
 # ============================================================
 elif page == '📈 統計報表':
-    st.title('📈 統計報表')
+    st.markdown(f"""
+    <div style="margin-bottom:18px;">
+      <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+                 font-weight:900; letter-spacing:-0.02em;">統計報表</h1>
+      <div style="color:{COLORS['ink_soft']}; font-size:0.9rem; margin-top:4px;">全公司專案進度的深度分析</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     if not tasks:
         st.info('尚無資料，請先匯入會議記錄')
     else:
-        col1, col2, col3, col4 = st.columns(4)
-        total = len(tasks)
-        completed_count = sum(1 for t in tasks if int(t.get('progress', 0)) >= 100)
-        purple_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'purple')
-        red_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'red')
-        overall_rate = round(completed_count / total * 100, 1) if total > 0 else 0
-        col1.metric('📋 總事項數', total)
-        col2.metric('✅ 完成率', f'{overall_rate}%')
-        col3.metric('🔴 緊急', red_count)
-        col4.metric('🟣 逾期', purple_count)
+        from lib.charts import (
+            progress_trend, dept_status_stacked, dept_completion_bar, week_due_timeline,
+        )
 
-        st.divider()
-        st.subheader('📈 完成率趨勢圖')
+        # ---------- Hero KPIs (sharing dashboard logic) ----------
+        metrics = compute_metrics(tasks)
+        render_hero_kpis(metrics)
+        st.markdown('<div style="height:18px"></div>', unsafe_allow_html=True)
+
+        # ---------- 完成率趨勢 ----------
         history = cached_history()
         if len(history) >= 2:
-            hist_df = pd.DataFrame(history)
-            hist_df['date'] = pd.to_datetime(hist_df['date'])
-            hist_df = hist_df.sort_values('date').set_index('date')
-            st.line_chart(hist_df[['completion_rate', 'avg_progress']], height=300)
-            st.caption('藍線：完成率(%) ｜ 橘線：平均進度(%)')
+            st.plotly_chart(progress_trend(history), use_container_width=True)
         else:
-            st.info('趨勢圖需要至少 2 天的資料才能顯示，目前資料累積中...')
-            if history:
-                st.write(f"今日完成率：{history[-1].get('completion_rate', 0)}%")
-                st.write(f"今日平均進度：{history[-1].get('avg_progress', 0)}%")
+            st.markdown(f"""
+            <div style="background:white; border-radius:14px; padding:20px; text-align:center;
+                        border:1px dashed {COLORS['line']}; color:{COLORS['ink_soft']};">
+              <div style="font-size:2rem;">📈</div>
+              <div style="margin-top:6px;">趨勢圖需要 2 天以上的資料，目前累積中…</div>
+              {f"<div style='font-size:0.85rem; margin-top:6px;'>今日：完成率 {history[-1].get('completion_rate',0)}% · 平均進度 {history[-1].get('avg_progress',0)}%</div>" if history else ''}
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.divider()
-        st.subheader('🏢 各部門完成率')
+        st.markdown('<div style="height:18px"></div>', unsafe_allow_html=True)
+
+        # ---------- 部門分析：兩欄並排 ----------
+        # 計算：dept_rows（for bar）+ dept_breakdown（for stacked 燈號）
         dept_counts: dict[str, dict] = {}
+        dept_breakdown: dict[str, dict] = {}
         for t in tasks:
             dept = t.get('who_dept', '未分類')
             d = dept_counts.setdefault(dept, {'total': 0, 'completed': 0, 'progress_sum': 0})
@@ -509,20 +517,26 @@ elif page == '📈 統計報表':
             if p >= 100:
                 d['completed'] += 1
             d['progress_sum'] += p
-        dept_rows = []
-        for dept, data in dept_counts.items():
-            comp_rate = round(data['completed'] / data['total'] * 100, 1) if data['total'] > 0 else 0
-            avg_prog = round(data['progress_sum'] / data['total'], 1) if data['total'] > 0 else 0
-            dept_rows.append({
-                '部門': dept, '總事項': data['total'], '已完成': data['completed'],
-                '完成率%': comp_rate, '平均進度%': avg_prog,
-            })
-        dept_df = pd.DataFrame(dept_rows).sort_values('完成率%', ascending=False)
-        st.dataframe(dept_df, use_container_width=True, hide_index=True)
-        st.bar_chart(dept_df.set_index('部門')[['完成率%', '平均進度%']], height=300)
 
-        st.divider()
-        st.subheader('📅 本週到期事項')
+            b = dept_breakdown.setdefault(dept, {'complete': 0, 'green': 0, 'yellow': 0, 'red': 0, 'purple': 0})
+            _, color = get_status(t.get('when_end', ''), p)
+            b[color] = b.get(color, 0) + 1
+
+        dept_rows = [{
+            '部門': dept, '總事項': d['total'], '已完成': d['completed'],
+            '完成率%': round(d['completed'] / d['total'] * 100, 1) if d['total'] else 0,
+            '平均進度%': round(d['progress_sum'] / d['total'], 1) if d['total'] else 0,
+        } for dept, d in dept_counts.items()]
+
+        chart_c1, chart_c2 = st.columns(2)
+        with chart_c1:
+            st.plotly_chart(dept_completion_bar(dept_rows), use_container_width=True)
+        with chart_c2:
+            st.plotly_chart(dept_status_stacked(dept_breakdown), use_container_width=True)
+
+        st.markdown('<div style="height:18px"></div>', unsafe_allow_html=True)
+
+        # ---------- 本週到期倒數 ----------
         today = date.today()
         week_rows = []
         for t in tasks:
@@ -533,7 +547,7 @@ elif page == '📈 統計報表':
             except ValueError:
                 continue
             days_left = (end - today).days
-            if 0 <= days_left <= 7:
+            if -7 <= days_left <= 7:
                 week_rows.append({
                     '任務名稱': t.get('what', ''),
                     '負責部門': t.get('who_dept', ''),
@@ -542,18 +556,28 @@ elif page == '📈 統計報表':
                     '剩餘天數': days_left,
                     '進度%': int(t.get('progress', 0)),
                 })
-        if week_rows:
-            st.dataframe(pd.DataFrame(week_rows).sort_values('剩餘天數'), use_container_width=True, hide_index=True)
-        else:
-            st.info('本週無到期事項')
 
-        st.divider()
+        if week_rows:
+            st.plotly_chart(week_due_timeline(week_rows), use_container_width=True)
+        else:
+            st.markdown(f"""
+            <div style="background:white; border-radius:14px; padding:20px; text-align:center; color:{COLORS['ink_soft']};">
+              <div style="font-size:2rem;">✨</div>
+              <div style="margin-top:6px;">本週無逾期或即將到期事項</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
+
+        # ---------- 匯出 ----------
         excel_data = export_to_excel(tasks)
         st.download_button(
-            label='📥 下載完整專案追蹤表 (.xlsx)',
+            label='📥 下載完整專案追蹤表（.xlsx）',
             data=excel_data,
             file_name=f'專案追蹤_{date.today()}.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            type='primary',
+            use_container_width=True,
         )
 
 
