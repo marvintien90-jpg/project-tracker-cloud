@@ -216,43 +216,54 @@ def render_focus_cards(m: dict) -> None:
 # ============================================================
 # AI 老闆視角摘要（GPT 一句話）
 # ============================================================
-@st.cache_data(ttl=1800)  # 30 分鐘快取一次
+@st.cache_data(ttl=1800, show_spinner=False)
 def _ai_summary_cached(total: int, completed: int, urgent: int, overdue: int,
-                       avg_progress: float, top_urgent_titles: tuple[str, ...]) -> str:
-    """由 GPT 產生 2-3 句老闆視角的今日摘要。快取 30 分鐘避免每次開頁都打 API。"""
+                       avg_progress: float, top_urgent_titles_str: str) -> str:
+    """由 GPT 產生 2-3 句老闆視角的今日摘要。快取 30 分鐘避免每次開頁都打 API。
+
+    注意：top_urgent_titles_str 傳入 \\n 分隔的字串（避免 tuple hashing 問題）。
+    """
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=get_openai_api_key())
-        prompt = f"""你是總部營運長。根據以下專案數據，用 2-3 句繁體中文給老闆「今日專案狀況簡報」。語氣要專業、有洞察、給具體行動建議。不要用條列，用一段流暢的敘述。
+        api_key = get_openai_api_key()
+        if not api_key:
+            return '（未設定 OpenAI Key，無法生成 AI 摘要）'
 
-數據：
-- 總追蹤事項：{total} 件
-- 已完成：{completed} 件（完成率 {round(completed/max(total,1)*100,1)}%）
-- 平均進度：{avg_progress}%
-- 🔴 緊急（3 天內到期）：{urgent} 件
-- 🟣 已逾期：{overdue} 件
+        client = OpenAI(api_key=api_key)
+        rate = round(completed / max(total, 1) * 100, 1)
+        urgent_block = top_urgent_titles_str if top_urgent_titles_str else '- 無'
 
-前 3 個最急的事項：
-{chr(10).join('- '+t for t in top_urgent_titles[:3]) if top_urgent_titles else '- 無'}
-
-請直接給那段敘述，不要多餘前後文。"""
+        prompt = (
+            "你是總部營運長。根據以下專案數據，用 2-3 句繁體中文給老闆「今日專案狀況簡報」。"
+            "語氣要專業、有洞察、給具體行動建議。不要用條列，用一段流暢的敘述。\n\n"
+            "數據：\n"
+            f"- 總追蹤事項：{total} 件\n"
+            f"- 已完成：{completed} 件（完成率 {rate}%）\n"
+            f"- 平均進度：{avg_progress}%\n"
+            f"- 🔴 緊急（3 天內到期）：{urgent} 件\n"
+            f"- 🟣 已逾期：{overdue} 件\n\n"
+            "前 3 個最急的事項：\n"
+            f"{urgent_block}\n\n"
+            "請直接給那段敘述，不要多餘前後文。"
+        )
         resp = client.chat.completions.create(
             model='gpt-4o-mini',
             messages=[{'role': 'user', 'content': prompt}],
             temperature=0.4,
-            max_tokens=200,
+            max_tokens=300,
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
-        return f'（AI 摘要暫時無法生成：{type(e).__name__}）'
+        return f'（AI 摘要暫時無法生成：{type(e).__name__} — {str(e)[:120]}）'
 
 
 def render_ai_summary(m: dict) -> None:
-    top_urgent = tuple(t.get('what', '') for t in
-                       (m['overdue_tasks'] + m['urgent_tasks'])[:3])
+    top_urgent_list = [t.get('what', '') for t in
+                       (m['overdue_tasks'] + m['urgent_tasks'])[:3]]
+    top_urgent_str = '\n'.join(f'- {t}' for t in top_urgent_list if t)
     summary = _ai_summary_cached(
         m['total'], m['completed'], m['urgent'], m['overdue'],
-        m['avg_progress'], top_urgent,
+        m['avg_progress'], top_urgent_str,
     )
     st.markdown(f"""
     <div style="
