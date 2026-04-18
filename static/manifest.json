@@ -1,0 +1,18 @@
+{
+  "name": "總部專案追蹤助理",
+  "short_name": "專案追蹤",
+  "description": "嗑肉石鍋總部專案進度追蹤 × AI 解析會議記錄",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F2",
+  "theme_color": "#E85D3A",
+  "icons": [
+    {
+      "src": "/app/static/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

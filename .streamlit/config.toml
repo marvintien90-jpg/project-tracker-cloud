@@ -2,8 +2,16 @@
 headless = true
 
 [theme]
-primaryColor = "#FF6B6B"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+# 嗑肉石鍋品牌色 — 石鍋橘 × 墨黑 × 奶白
+primaryColor = "#E85D3A"
+backgroundColor = "#FAF7F2"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1A1A1A"
 font = "sans serif"
+base = "light"
+
+# 次要字級設定（Streamlit 1.45+ 支援）
+[theme.sidebar]
+backgroundColor = "#1A1A1A"
+primaryColor = "#E85D3A"
+textColor = "#F8F5F0"

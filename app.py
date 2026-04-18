@@ -12,6 +12,7 @@ from datetime import date, datetime
 import pandas as pd
 import streamlit as st
 
+from lib.brand import apply_brand
 from lib.config import DEPARTMENTS
 from lib.drive_client import extract_text, get_drive_service, list_doc_files
 from lib.ai_parser import parse_meeting
@@ -23,10 +24,14 @@ from lib.status import COLOR_EMOJI, get_status
 
 st.set_page_config(
     page_title='總部專案追蹤助理',
-    page_icon='📋',
+    page_icon='static/favicon.svg',
     layout='wide',
     initial_sidebar_state='expanded',
+    menu_items={
+        'About': '嗑肉石鍋總部專案進度追蹤助理 — 雲端版 v1.1',
+    },
 )
+apply_brand()
 
 
 # ============================================================

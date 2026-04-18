@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- 圓角方塊底色：石鍋橘漸層 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F27D5A"/>
+      <stop offset="1" stop-color="#D04020"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg)"/>
+
+  <!-- 石鍋剪影（鍋身） -->
+  <g filter="url(#shadow)">
+    <path d="M28 56 H92 A8 8 0 0 1 100 64 V74 A22 22 0 0 1 78 96 H42 A22 22 0 0 1 20 74 V64 A8 8 0 0 1 28 56 Z"
+          fill="#FAF7F2"/>
+    <!-- 鍋蓋把手 -->
+    <rect x="54" y="30" width="12" height="6" rx="3" fill="#FAF7F2"/>
+    <!-- 鍋蓋 -->
+    <path d="M30 56 Q60 38 90 56 Z" fill="#F8F5F0" stroke="#1A1A1A" stroke-width="1.5" stroke-linejoin="round"/>
+  </g>
+
+  <!-- 勾勾（表示已完成） -->
+  <path d="M40 74 L52 86 L82 62" stroke="#E85D3A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
