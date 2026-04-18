@@ -688,3 +688,122 @@ elif page == '📱 Line 提醒':
             if st.button('🔄 重新產出', use_container_width=True):
                 del st.session_state['line_msg']
                 st.rerun()
+
+
+# ============================================================
+# 浮動操作按鈕 FAB（全站顯示）
+# ============================================================
+@st.dialog('➕ 快速新增任務', width='large')
+def _quick_add_dialog():
+    st.markdown('<div style="color:#666; font-size:0.85rem; margin-bottom:10px;">直接手動建立一筆任務（不經過 AI 解析）</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        q_what = st.text_input('任務名稱 *', '')
+        q_dept = st.selectbox('負責部門 *', DEPARTMENTS)
+        q_person = st.text_input('負責人', '待確認')
+        q_where = st.text_input('執行地點', '總部')
+    with c2:
+        q_why = st.text_area('目的', '', height=80)
+        q_how = st.text_area('執行方式', '', height=80)
+    c3, c4 = st.columns(2)
+    with c3:
+        q_start = st.date_input('開始日期', date.today(), format='YYYY-MM-DD')
+    with c4:
+        q_end = st.date_input('截止日期', None, format='YYYY-MM-DD')
+    q_progress = st.slider('起始進度 %', 0, 100, 0)
+
+    if st.button('💾 新增任務', type='primary', use_container_width=True):
+        if not q_what.strip():
+            st.error('任務名稱必填')
+            return
+        new = {
+            'what': q_what.strip(),
+            'why': q_why.strip(),
+            'who_dept': q_dept,
+            'who_person': q_person.strip() or '待確認',
+            'where': q_where.strip() or '總部',
+            'when_start': q_start.isoformat() if q_start else '',
+            'when_end': q_end.isoformat() if q_end else '',
+            'how': q_how.strip(),
+            'progress': q_progress,
+            'source_file': '手動新增',
+            'imported_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        }
+        try:
+            append_tasks([new])
+            refresh_data()
+            st.toast('✨ 任務已新增')
+            st.rerun()
+        except Exception as e:
+            st.error(f'新增失敗：{e}')
+
+
+# 浮動按鈕容器（CSS 會把它釘到右下）
+st.markdown("""
+<style>
+/* FAB 定位：右下浮動 */
+[data-testid="stPopover"] > div:first-child {
+  /* reset */
+}
+div[data-testid="column"]:has(> div > div > [data-testid="stPopover"].fab-anchor) {
+  /* for future use */
+}
+/* 標記容器：用 attribute 選擇器鎖定 */
+.fab-slot {
+  position: fixed !important;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  width: auto;
+}
+.fab-slot button {
+  background: linear-gradient(135deg, #F27D5A, #D04020) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 60px !important;
+  height: 60px !important;
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
+  padding: 0 !important;
+  box-shadow: 0 8px 24px rgba(232, 93, 58, 0.45), 0 0 0 6px rgba(232, 93, 58, 0.1) !important;
+  transition: all 0.2s !important;
+}
+.fab-slot button:hover {
+  transform: translateY(-2px) scale(1.05) !important;
+  box-shadow: 0 12px 32px rgba(232, 93, 58, 0.55), 0 0 0 8px rgba(232, 93, 58, 0.15) !important;
+}
+@media (max-width: 768px) {
+  .fab-slot {
+    bottom: 20px;
+    right: 20px;
+  }
+  .fab-slot button {
+    width: 52px !important;
+    height: 52px !important;
+    font-size: 1.4rem !important;
+  }
+}
+</style>
+<div class="fab-slot" id="fab-anchor"></div>
+<script>
+// 把下一個 button 移動進 fab-slot（延遲執行等 Streamlit 渲染完）
+(function moveToFab(){
+  const anchor = document.getElementById('fab-anchor');
+  const buttons = document.querySelectorAll('button[kind="primary"]');
+  // 找到最後一個含「＋」符號的按鈕作為 FAB
+  for (const b of buttons) {
+    if (b.textContent.trim() === '➕' && !b.dataset.fabMoved) {
+      b.dataset.fabMoved = '1';
+      anchor.appendChild(b.closest('[data-testid="stButton"]') || b);
+      break;
+    }
+  }
+  setTimeout(moveToFab, 500);
+})();
+</script>
+""", unsafe_allow_html=True)
+
+# 注意：Streamlit 元件渲染有順序，FAB 觸發鍵要放在這裡（會被 JS 搬到 fab-slot）
+if st.button('➕', key='fab_main', type='primary', help='快速新增任務'):
+    _quick_add_dialog()
