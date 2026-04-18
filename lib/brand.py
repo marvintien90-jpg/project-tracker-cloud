@@ -301,6 +301,67 @@ header[data-testid="stHeader"] {{
   font-weight: 500;
   margin-top: 4px;
 }}
+
+/* ---------- Loading skeleton shimmer ---------- */
+.skeleton {{
+  background: linear-gradient(90deg, {COLORS['cream_dark']} 25%, #EFE9DF 50%, {COLORS['cream_dark']} 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}}
+@keyframes shimmer {{
+  0% {{ background-position: -200% 0; }}
+  100% {{ background-position: 200% 0; }}
+}}
+
+/* ---------- Sticky 頂部導航（滾動時仍可見） ---------- */
+div[data-testid="stHorizontalBlock"]:has(> div > div > [data-testid*="option_menu"]),
+.stHorizontalBlock:has(.option-menu) {{
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}}
+
+/* ---------- 錯誤訊息美化 ---------- */
+[data-testid="stAlert"][data-baseweb="notification"] {{
+  border-radius: 12px !important;
+  border-left-width: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}}
+
+/* ---------- st.code copy button 加強 ---------- */
+.stCode {{
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}}
+.stCode pre {{
+  background: {COLORS['ink']} !important;
+  color: {COLORS['cream']} !important;
+  font-family: 'Noto Sans TC', 'Inter', monospace !important;
+  font-size: 0.9rem !important;
+  line-height: 1.7 !important;
+}}
+
+/* ---------- Dialog 整體 ---------- */
+div[role="dialog"] {{
+  border-radius: 18px !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.2) !important;
+}}
+
+/* ---------- 頂部 Streamlit 工具列邊距 ---------- */
+.stAppDeployButton, div[data-testid="stToolbar"] {{
+  /* 讓頂部更乾淨 */
+}}
+
+/* ---------- Balloons / confetti 區域 ---------- */
+/* Streamlit 自帶 */
+
+/* ---------- 任務卡 hover 效果 ---------- */
+div[data-testid="stHorizontalBlock"]:hover > div:first-child > div > div[style*="border-left: 4px solid"] {{
+  transform: translateX(2px);
+  transition: transform 0.15s;
+}}
 </style>
 """
 

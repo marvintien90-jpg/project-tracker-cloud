@@ -80,8 +80,20 @@ def record_daily_progress(tasks: list[dict]) -> None:
 try:
     tasks = cached_tasks()
 except Exception as e:
-    st.error(f'❌ 無法連線 Google Sheets：{e}')
-    st.info('請確認 Streamlit secrets 中的 service account 設定，且該帳戶已被加為 Sheet 編輯者。')
+    st.markdown(f"""
+    <div style="max-width:600px; margin:60px auto; background:white; border-radius:18px;
+                padding:32px; box-shadow:0 8px 24px rgba(0,0,0,0.08); text-align:center;">
+      <div style="font-size:3rem;">⚠️</div>
+      <div style="font-size:1.1rem; font-weight:700; margin-top:12px; color:#DC2626;">無法連線 Google Sheets</div>
+      <div style="color:#6B7280; margin-top:8px; font-size:0.9rem;">{type(e).__name__}: {str(e)[:200]}</div>
+      <div style="color:#6B7280; margin-top:16px; font-size:0.85rem; line-height:1.6; text-align:left; background:#FAF7F2; padding:14px 16px; border-radius:10px;">
+        <b>請檢查：</b><br>
+        1. Streamlit Secrets 中的 <code>gcp_service_account</code> 欄位完整<br>
+        2. 服務帳戶 email 已加入 Sheet 為編輯者<br>
+        3. Google Drive API 與 Sheets API 已啟用
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
 
 record_daily_progress(tasks)
@@ -135,6 +147,16 @@ with st.sidebar:
     if st.button('🔄 重新載入資料', use_container_width=True):
         refresh_data()
         st.rerun()
+
+    st.markdown(f"""
+    <div style="margin-top:16px; padding:10px 12px; background:rgba(255,255,255,0.05); border-radius:8px;">
+      <div style="font-size:0.65rem; color:#A09B95; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">最後更新</div>
+      <div style="font-size:0.85rem; color:{COLORS['cream']}; margin-top:2px; font-family:'Inter';">{datetime.now().strftime('%Y/%m/%d %H:%M')}</div>
+      <div style="font-size:0.65rem; color:#A09B95; margin-top:6px; line-height:1.5;">
+        ⚡ 自動掃描每小時一次<br>🔁 Sheet 快取 5 分鐘
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ============================================================
