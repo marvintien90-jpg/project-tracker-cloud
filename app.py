@@ -215,70 +215,201 @@ if page == '📊 專案總覽':
         </div>
         """, unsafe_allow_html=True)
 
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            filter_dept = st.selectbox('篩選部門', ['全部'] + DEPARTMENTS)
-        with col_f2:
+        # 搜尋列 + 燈號篩選
+        col_s1, col_s2 = st.columns([3, 2])
+        with col_s1:
+            search_q = st.text_input(
+                '🔍 搜尋任務', '',
+                placeholder='搜尋任務名稱 / 負責人 / 目的…',
+                key='search_q', label_visibility='collapsed',
+            )
+        with col_s2:
             filter_status = st.selectbox(
-                '篩選燈號',
-                ['全部', '🟣 已逾期', '🔴 緊急', '🟡 注意', '🟢 正常', '✅ 已完成'],
+                '燈號',
+                ['全部燈號', '🟣 已逾期', '🔴 緊急', '🟡 注意', '🟢 正常', '✅ 已完成'],
+                key='filter_status', label_visibility='collapsed',
             )
 
-        for i, task in enumerate(tasks):
+        # 部門 chips
+        if 'filter_dept' not in st.session_state:
+            st.session_state.filter_dept = '全部'
+
+        def _set_dept(d):
+            st.session_state.filter_dept = d
+
+        chip_cols = st.columns(len(DEPARTMENTS) + 1)
+        with chip_cols[0]:
+            is_selected = st.session_state.filter_dept == '全部'
+            if st.button(f'全部', key='dept_chip_all',
+                         type='primary' if is_selected else 'secondary',
+                         use_container_width=True):
+                _set_dept('全部')
+                st.rerun()
+        for idx, d in enumerate(DEPARTMENTS):
+            with chip_cols[idx + 1]:
+                is_selected = st.session_state.filter_dept == d
+                if st.button(d, key=f'dept_chip_{idx}',
+                             type='primary' if is_selected else 'secondary',
+                             use_container_width=True):
+                    _set_dept(d)
+                    st.rerun()
+
+        filter_dept = st.session_state.filter_dept
+
+        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+
+        # 篩選
+        filtered = []
+        for task in tasks:
             if filter_dept != '全部' and task.get('who_dept') != filter_dept:
                 continue
             status_text, color = get_status(task.get('when_end', ''), int(task.get('progress', 0)))
-            if filter_status != '全部' and filter_status not in status_text:
+            if filter_status != '全部燈號' and filter_status not in status_text:
                 continue
+            if search_q:
+                hay = ' '.join(str(task.get(k, '')) for k in
+                               ('what', 'why', 'how', 'who_person', 'who_dept', 'where')).lower()
+                if search_q.lower() not in hay:
+                    continue
+            filtered.append((task, status_text, color))
 
-            emoji = COLOR_EMOJI.get(color, '🟢')
-            label = f"{emoji} {task.get('what', '未命名')} ｜ {task.get('who_dept', '')} {task.get('who_person', '')} ｜ {status_text}"
-            with st.expander(label):
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_what = st.text_input('任務名稱', task.get('what', ''), key=f'what_{i}')
-                    dept_val = task.get('who_dept', DEPARTMENTS[0])
-                    dept_index = DEPARTMENTS.index(dept_val) if dept_val in DEPARTMENTS else 0
-                    new_dept = st.selectbox('負責部門', DEPARTMENTS, index=dept_index, key=f'dept_{i}')
-                    new_person = st.text_input('負責人', task.get('who_person', ''), key=f'person_{i}')
-                    new_where = st.text_input('執行地點', task.get('where', ''), key=f'where_{i}')
-                with col2:
-                    new_why = st.text_area('目的', task.get('why', ''), key=f'why_{i}')
-                    new_how = st.text_area('執行方式', task.get('how', ''), key=f'how_{i}')
-                    new_start = st.text_input('開始日期 (YYYY-MM-DD)', task.get('when_start', ''), key=f'start_{i}')
-                    new_end = st.text_input('截止日期 (YYYY-MM-DD)', task.get('when_end', ''), key=f'end_{i}')
-                new_progress = st.slider('進度 %', 0, 100, int(task.get('progress', 0)), key=f'progress_{i}')
+        # 結果計數
+        st.markdown(f"""
+        <div style="color:{COLORS['ink_soft']}; font-size:0.85rem; margin-bottom:10px;">
+          符合條件的任務：<b style="color:{COLORS['ink']};">{len(filtered)}</b> / {len(tasks)} 件
+        </div>
+        """, unsafe_allow_html=True)
 
-                col_save, col_del = st.columns([1, 4])
-                with col_save:
-                    if st.button('💾 儲存', key=f'save_{i}'):
-                        updated = dict(task)
-                        updated.update({
-                            'what': new_what, 'who_dept': new_dept, 'who_person': new_person,
-                            'where': new_where, 'why': new_why, 'how': new_how,
-                            'when_start': new_start, 'when_end': new_end, 'progress': new_progress,
-                        })
-                        try:
-                            ok = update_task(updated)
-                            if ok:
-                                refresh_data()
-                                st.success('已儲存！')
-                                st.rerun()
-                            else:
-                                st.error('找不到對應的 task_id，無法更新')
-                        except Exception as e:
-                            st.error(f'儲存失敗：{e}')
-                with col_del:
-                    if st.button('🗑️ 刪除此事項', key=f'del_{i}'):
-                        try:
-                            if delete_task(task.get('task_id', '')):
-                                refresh_data()
-                                st.success('已刪除')
-                                st.rerun()
-                            else:
-                                st.error('刪除失敗（找不到對應 row）')
-                        except Exception as e:
-                            st.error(f'刪除失敗：{e}')
+        # ---------- 任務卡片列表 ----------
+        @st.dialog('編輯任務', width='large')
+        def _edit_dialog(task):
+            st.markdown(f"<div style='color:{COLORS['ink_soft']}; font-size:0.8rem; margin-bottom:6px;'>Task ID：<code>{task.get('task_id','')[:8]}…</code></div>", unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                new_what = st.text_input('任務名稱', task.get('what', ''))
+                dept_val = task.get('who_dept', DEPARTMENTS[0])
+                dept_index = DEPARTMENTS.index(dept_val) if dept_val in DEPARTMENTS else 0
+                new_dept = st.selectbox('負責部門', DEPARTMENTS, index=dept_index)
+                new_person = st.text_input('負責人', task.get('who_person', ''))
+                new_where = st.text_input('執行地點', task.get('where', ''))
+            with col2:
+                new_why = st.text_area('目的', task.get('why', ''), height=100)
+                new_how = st.text_area('執行方式', task.get('how', ''), height=100)
+
+            # 日期：用 st.date_input（手機原生日曆）
+            col_d1, col_d2 = st.columns(2)
+
+            def _parse_date(s):
+                try:
+                    return date.fromisoformat(s) if s else None
+                except Exception:
+                    return None
+
+            with col_d1:
+                start_dt = _parse_date(task.get('when_start', ''))
+                new_start_dt = st.date_input('開始日期', start_dt, format='YYYY-MM-DD')
+                new_start = new_start_dt.isoformat() if new_start_dt else ''
+            with col_d2:
+                end_dt = _parse_date(task.get('when_end', ''))
+                new_end_dt = st.date_input('截止日期', end_dt, format='YYYY-MM-DD')
+                new_end = new_end_dt.isoformat() if new_end_dt else ''
+
+            new_progress = st.slider('進度 %', 0, 100, int(task.get('progress', 0)))
+
+            col_save, col_del, col_cancel = st.columns([1.2, 1.2, 1])
+            with col_save:
+                if st.button('💾 儲存', type='primary', use_container_width=True):
+                    updated = dict(task)
+                    updated.update({
+                        'what': new_what, 'who_dept': new_dept, 'who_person': new_person,
+                        'where': new_where, 'why': new_why, 'how': new_how,
+                        'when_start': new_start, 'when_end': new_end, 'progress': new_progress,
+                    })
+                    try:
+                        ok = update_task(updated)
+                        if ok:
+                            refresh_data()
+                            st.success('已儲存！')
+                            st.rerun()
+                        else:
+                            st.error('找不到對應的 task_id')
+                    except Exception as e:
+                        st.error(f'儲存失敗：{e}')
+            with col_del:
+                if st.button('🗑️ 刪除', use_container_width=True):
+                    try:
+                        if delete_task(task.get('task_id', '')):
+                            refresh_data()
+                            st.success('已刪除')
+                            st.rerun()
+                        else:
+                            st.error('刪除失敗（找不到對應 row）')
+                    except Exception as e:
+                        st.error(f'刪除失敗：{e}')
+
+        # 渲染卡片
+        if not filtered:
+            st.markdown(f"""
+            <div style="text-align:center; padding:40px 20px; color:{COLORS['ink_soft']};">
+              <div style="font-size:3rem;">🔍</div>
+              <div style="margin-top:8px; font-size:0.95rem;">沒有符合條件的任務</div>
+              <div style="font-size:0.8rem; color:#999; margin-top:4px;">試試調整篩選條件</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 按燈號排序：紫 > 紅 > 黃 > 綠 > 完成
+        order = {'purple': 0, 'red': 1, 'yellow': 2, 'green': 3, 'complete': 4}
+        filtered.sort(key=lambda x: (order.get(x[2], 9), x[0].get('when_end', '9999-12-31')))
+
+        # 狀態色對應
+        color_map = {
+            'purple': COLORS['purple'], 'red': COLORS['red'],
+            'yellow': COLORS['yellow'], 'green': COLORS['green'],
+            'complete': COLORS['complete'],
+        }
+
+        for i, (task, status_text, color) in enumerate(filtered):
+            progress = int(task.get('progress', 0))
+            bar_color = color_map.get(color, COLORS['green'])
+
+            card_col, btn_col = st.columns([20, 1])
+            with card_col:
+                st.markdown(f"""
+                <div style="
+                  background: white;
+                  border-radius: 14px;
+                  padding: 14px 18px;
+                  margin-bottom: 10px;
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+                  border-left: 4px solid {bar_color};
+                  border-right: 1px solid {COLORS['line']};
+                  border-top: 1px solid {COLORS['line']};
+                  border-bottom: 1px solid {COLORS['line']};
+                  display:grid; grid-template-columns: 1fr auto; gap: 10px; align-items:center;
+                ">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                      <span style="font-weight:700; font-size:1rem; color:{COLORS['ink']};">{task.get('what','未命名')[:60]}</span>
+                      <span class="brand-tag primary">{task.get('who_dept','')}</span>
+                      <span class="brand-tag">{task.get('who_person','')}</span>
+                      <span class="brand-tag {color}">{status_text}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="flex:1; height:6px; background:{COLORS['cream_dark']}; border-radius:999px; overflow:hidden;">
+                        <div style="width:{progress}%; height:100%; background:linear-gradient(90deg,{COLORS['primary_light']},{COLORS['primary']}); border-radius:999px; transition:width 0.4s;"></div>
+                      </div>
+                      <div style="font-size:0.8rem; font-weight:700; font-family:'Inter'; color:{COLORS['ink']}; min-width:40px; text-align:right;">{progress}%</div>
+                      <div style="font-size:0.75rem; color:{COLORS['ink_soft']}; min-width:90px; text-align:right;">📅 {task.get('when_end','未設定')}</div>
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+            with btn_col:
+                st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
+                if st.button('✏️', key=f'edit_{i}_{task.get("task_id","")[:6]}',
+                             help='編輯', use_container_width=True):
+                    _edit_dialog(task)
 
 
 # ============================================================
