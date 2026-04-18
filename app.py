@@ -11,8 +11,9 @@ from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
+from streamlit_option_menu import option_menu
 
-from lib.brand import apply_brand
+from lib.brand import COLORS, apply_brand
 from lib.config import DEPARTMENTS
 from lib.drive_client import extract_text, get_drive_service, list_doc_files
 from lib.ai_parser import parse_meeting
@@ -86,31 +87,107 @@ record_daily_progress(tasks)
 
 
 # ============================================================
-# 側邊欄
+# 側邊欄（Logo + 統計摘要 + 重新載入）
 # ============================================================
-with st.sidebar:
-    st.title('📋 總部專案\n進度追蹤助理')
-    st.caption('雲端版 v1.0')
-    st.divider()
-    page = st.radio(
-        '功能選單',
-        ['📊 專案總覽', '📥 匯入會議記錄', '📈 統計報表', '📋 週報', '📱 Line 提醒'],
-        label_visibility='collapsed',
-    )
-    st.divider()
+total = len(tasks)
+completed_count = sum(1 for t in tasks if int(t.get('progress', 0)) >= 100)
+purple_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'purple')
+red_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'red')
 
-    total = len(tasks)
-    completed_count = sum(1 for t in tasks if int(t.get('progress', 0)) >= 100)
-    purple_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'purple')
-    red_count = sum(1 for t in tasks if get_status(t.get('when_end', ''), int(t.get('progress', 0)))[1] == 'red')
-    st.markdown(f'**📋 總事項：{total} 件**')
-    st.markdown(f'**🔴 緊急：{red_count} 件**')
-    st.markdown(f'**🟣 逾期：{purple_count} 件**')
-    st.markdown(f'**✅ 完成：{completed_count} 件**')
-    st.divider()
-    if st.button('🔄 重新載入資料'):
+with st.sidebar:
+    # Logo + 標題
+    st.markdown("""
+    <div style="text-align:center; padding: 12px 0 8px;">
+      <div style="font-size:2.8rem; line-height:1;">🍲</div>
+      <div style="font-family: 'Noto Sans TC'; font-weight:900; font-size:1.1rem; color:#FAF7F2; margin-top:4px; letter-spacing:0.02em;">
+        總部專案追蹤助理
+      </div>
+      <div style="font-size:0.72rem; color:#A09B95; margin-top:2px;">雲端版 v1.1</div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<hr style="border-color:#333; margin:12px 0;">', unsafe_allow_html=True)
+
+    # 統計摘要卡（側邊欄深底配高對比）
+    st.markdown(f"""
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+      <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center;">
+        <div style="font-size:1.6rem; font-weight:800; color:#FAF7F2; font-family:'Inter';">{total}</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">總事項</div>
+      </div>
+      <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['complete']};">
+        <div style="font-size:1.6rem; font-weight:800; color:#FAF7F2; font-family:'Inter';">{completed_count}</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">已完成</div>
+      </div>
+      <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['red']};">
+        <div style="font-size:1.6rem; font-weight:800; color:#FCA5A5; font-family:'Inter';">{red_count}</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">🔴 緊急</div>
+      </div>
+      <div style="background:#2A2A2A; padding:12px; border-radius:10px; text-align:center; border-left:3px solid {COLORS['purple']};">
+        <div style="font-size:1.6rem; font-weight:800; color:#C4B5FD; font-family:'Inter';">{purple_count}</div>
+        <div style="font-size:0.68rem; color:#A09B95; margin-top:2px;">🟣 逾期</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr style="border-color:#333; margin:12px 0;">', unsafe_allow_html=True)
+
+    if st.button('🔄 重新載入資料', use_container_width=True):
         refresh_data()
         st.rerun()
+
+
+# ============================================================
+# 頂部導航列（取代 radio — 桌面 & 手機都友善）
+# ============================================================
+NAV_LABELS = ['專案總覽', '匯入', '統計', '週報', 'Line']
+NAV_ICONS = ['kanban-fill', 'cloud-arrow-down-fill', 'graph-up-arrow', 'journal-text', 'chat-dots-fill']
+
+selected = option_menu(
+    menu_title=None,
+    options=NAV_LABELS,
+    icons=NAV_ICONS,
+    orientation='horizontal',
+    default_index=0,
+    key='main_nav',
+    styles={
+        'container': {
+            'padding': '6px!important',
+            'background-color': 'rgba(255, 255, 255, 0.7)',
+            'border-radius': '14px',
+            'border': f'1px solid {COLORS["line"]}',
+            'box-shadow': '0 2px 8px rgba(0,0,0,0.04)',
+            'backdrop-filter': 'blur(10px)',
+            'margin-bottom': '24px',
+        },
+        'icon': {'color': COLORS['ink_soft'], 'font-size': '18px'},
+        'nav-link': {
+            'font-family': "'Noto Sans TC', sans-serif",
+            'font-size': '0.95rem',
+            'font-weight': '600',
+            'color': COLORS['ink_soft'],
+            'text-align': 'center',
+            'margin': '0 2px',
+            'padding': '10px 14px',
+            'border-radius': '10px',
+            '--hover-color': 'rgba(232, 93, 58, 0.08)',
+        },
+        'nav-link-selected': {
+            'background': f'linear-gradient(135deg, {COLORS["primary_light"]}, {COLORS["primary"]})',
+            'color': 'white',
+            'font-weight': '700',
+            'box-shadow': '0 4px 12px rgba(232, 93, 58, 0.35)',
+        },
+    },
+)
+
+# 映射導航標籤到內部判斷字串
+page = {
+    '專案總覽': '📊 專案總覽',
+    '匯入': '📥 匯入會議記錄',
+    '統計': '📈 統計報表',
+    '週報': '📋 週報',
+    'Line': '📱 Line 提醒',
+}[selected]
 
 
 # ============================================================
