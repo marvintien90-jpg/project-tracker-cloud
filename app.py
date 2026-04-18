@@ -15,6 +15,7 @@ from streamlit_option_menu import option_menu
 
 from lib.brand import COLORS, apply_brand
 from lib.config import DEPARTMENTS
+from lib.dashboard import compute_metrics, render_ai_summary, render_focus_cards, render_hero_kpis
 from lib.drive_client import extract_text, get_drive_service, list_doc_files
 from lib.ai_parser import parse_meeting
 from lib.reports import export_to_excel, generate_line_message, generate_weekly_report
@@ -191,13 +192,29 @@ page = {
 
 
 # ============================================================
-# 1) 專案總覽
+# 1) 專案總覽（含首頁儀表板）
 # ============================================================
 if page == '📊 專案總覽':
-    st.title('📊 專案總覽')
     if not tasks:
+        st.title('📊 專案總覽')
         st.info('尚無任何專案，請先到「匯入會議記錄」頁面匯入資料')
     else:
+        # ---------- 首頁儀表板 ----------
+        metrics = compute_metrics(tasks)
+        render_ai_summary(metrics)
+        render_hero_kpis(metrics)
+        st.markdown('<div style="height:18px"></div>', unsafe_allow_html=True)
+        render_focus_cards(metrics)
+
+        # ---------- 分隔 ----------
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:12px; margin:28px 0 16px;">
+          <div style="flex:1; height:1px; background:{COLORS['line']};"></div>
+          <div style="font-weight:700; color:{COLORS['ink']}; font-size:1.1rem;">📋 全部任務</div>
+          <div style="flex:1; height:1px; background:{COLORS['line']};"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             filter_dept = st.selectbox('篩選部門', ['全部'] + DEPARTMENTS)
