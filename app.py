@@ -416,26 +416,38 @@ if page == '📊 專案總覽':
 # 2) 匯入會議記錄
 # ============================================================
 elif page == '📥 匯入會議記錄':
-    st.title('📥 匯入 Google Drive 會議記錄')
-    st.caption('系統每小時也會由 GitHub Actions 自動掃描，這裡提供手動立即匯入。')
+    st.markdown(f"""
+    <div style="margin-bottom:18px;">
+      <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+                 font-weight:900; letter-spacing:-0.02em;">匯入會議記錄</h1>
+      <div style="color:{COLORS['ink_soft']}; font-size:0.9rem; margin-top:4px;">
+        從 Google Drive 抓取 .doc / .docx / Google Doc，AI 自動解析 5W2H 行動事項
+      </div>
+    </div>
+    <div style="background:rgba(232,93,58,0.08); border-left:3px solid {COLORS['primary']}; border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:0.88rem; color:{COLORS['ink']};">
+      ⏰ 系統每小時由 GitHub Actions 自動掃描新檔。本頁供你立刻手動匯入。
+    </div>
+    """, unsafe_allow_html=True)
 
-    if st.button('🔄 掃描所有子資料夾'):
-        with st.spinner('正在掃描...'):
+    if st.button('🔄 掃描所有子資料夾', type='primary', use_container_width=True):
+        with st.spinner('正在掃描 Google Drive…'):
             try:
                 service = get_drive_service()
                 from lib.config import get_drive_folder_id
                 files = list_doc_files(service, get_drive_folder_id())
                 st.session_state['drive_files'] = files
-                st.success(f'找到 {len(files)} 個會議記錄檔案')
+                st.toast(f'✅ 找到 {len(files)} 個會議記錄檔案')
             except Exception as e:
                 st.error(f'掃描失敗：{e}')
 
     if 'drive_files' in st.session_state and st.session_state['drive_files']:
         files = st.session_state['drive_files']
-        selected = st.selectbox('選擇要匯入的會議記錄', [f['name'] for f in files])
+        st.markdown(f"<div style='color:{COLORS['ink_soft']}; font-size:0.85rem; margin:14px 0 6px;'>Drive 中共有 <b style='color:{COLORS['ink']};'>{len(files)}</b> 份可解析文件</div>", unsafe_allow_html=True)
+        selected = st.selectbox('選擇要匯入的會議記錄', [f['name'] for f in files], label_visibility='collapsed')
         selected_file = next(f for f in files if f['name'] == selected)
-        if st.button('🤖 AI 解析並匯入'):
-            with st.spinner('AI 正在解析會議記錄，請稍候...'):
+        if st.button('🤖 AI 解析並匯入', type='primary', use_container_width=True):
+            with st.spinner('AI 正在解析會議記錄，請稍候…'):
                 try:
                     service = get_drive_service()
                     text = extract_text(service, selected_file['id'], selected_file['mimeType'], selected_file['name'])
@@ -447,21 +459,41 @@ elif page == '📥 匯入會議記錄':
                         t['imported_at'] = now
                     n = append_tasks(new_tasks)
                     refresh_data()
-                    st.success(f'成功匯入 {n} 個行動事項！')
+                    st.toast(f'✨ 成功匯入 {n} 個行動事項')
+                    st.balloons()
                     st.session_state['parsed_tasks'] = new_tasks
                 except Exception as e:
                     st.error(f'解析失敗：{e}')
 
     if 'parsed_tasks' in st.session_state:
-        st.subheader('📋 AI 解析結果')
+        st.markdown(f"""
+        <div style="margin:24px 0 10px; display:flex; align-items:center; gap:10px;">
+          <div style="width:4px; height:20px; background:{COLORS['primary']}; border-radius:2px;"></div>
+          <div style="font-weight:700; font-size:1.05rem; color:{COLORS['ink']};">AI 解析結果</div>
+        </div>
+        """, unsafe_allow_html=True)
         for t in st.session_state['parsed_tasks']:
-            status_text, _ = get_status(t.get('when_end', ''), int(t.get('progress', 0)))
+            status_text, color = get_status(t.get('when_end', ''), int(t.get('progress', 0)))
+            color_map = {'purple': COLORS['purple'], 'red': COLORS['red'], 'yellow': COLORS['yellow'],
+                         'green': COLORS['green'], 'complete': COLORS['complete']}
+            bar_color = color_map.get(color, COLORS['green'])
             st.markdown(f"""
-**{t.get('what', '')}**
-- 部門：{t.get('who_dept', '')} ｜ 負責人：{t.get('who_person', '')}
-- 截止：{t.get('when_end', '未設定')} ｜ 狀態：{status_text}
-- 目的：{t.get('why', '')}
----""")
+            <div style="background:white; border-radius:12px; padding:14px 18px; margin-bottom:10px;
+                        border-left:4px solid {bar_color}; border-top:1px solid {COLORS['line']};
+                        border-right:1px solid {COLORS['line']}; border-bottom:1px solid {COLORS['line']};
+                        box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+              <div style="font-weight:700; font-size:0.95rem; color:{COLORS['ink']};">{t.get('what','')}</div>
+              <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+                <span class="brand-tag primary">{t.get('who_dept','')}</span>
+                <span class="brand-tag">{t.get('who_person','')}</span>
+                <span class="brand-tag {color}">{status_text}</span>
+                <span class="brand-tag">📅 {t.get('when_end','未設定')}</span>
+              </div>
+              <div style="margin-top:8px; font-size:0.82rem; color:{COLORS['ink_soft']}; line-height:1.5;">
+                💡 {t.get('why','')}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ============================================================
@@ -585,28 +617,74 @@ elif page == '📈 統計報表':
 # 4) 週報
 # ============================================================
 elif page == '📋 週報':
-    st.title('📋 週報產生')
+    st.markdown(f"""
+    <div style="margin-bottom:18px;">
+      <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+                 font-weight:900; letter-spacing:-0.02em;">週報產生</h1>
+      <div style="color:{COLORS['ink_soft']}; font-size:0.9rem; margin-top:4px;">
+        一鍵整合緊急事項、各部門進度、整體概況 → 貼進 Line / Email
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     if not tasks:
         st.info('尚無資料，請先匯入會議記錄')
     else:
-        if st.button('📊 產出本週週報'):
+        if st.button('📊 產出本週週報', type='primary', use_container_width=True):
             report = generate_weekly_report(tasks)
-            st.text_area('週報內容', report, height=600)
-            st.download_button(
-                '⬇️ 下載週報文字檔', report,
-                file_name=f'週報_{date.today()}.txt', mime='text/plain',
-            )
+            st.session_state['weekly_report'] = report
+            st.toast('✨ 週報已產出')
+
+        if 'weekly_report' in st.session_state:
+            report = st.session_state['weekly_report']
+            st.markdown(f"<div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']};'>📄 週報內容（右上角可一鍵複製）</div>", unsafe_allow_html=True)
+            st.code(report, language=None)
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                st.download_button(
+                    '⬇️ 下載 .txt', report,
+                    file_name=f'週報_{date.today()}.txt', mime='text/plain',
+                    use_container_width=True,
+                )
+            with col_d2:
+                if st.button('🔄 重新產出', use_container_width=True):
+                    del st.session_state['weekly_report']
+                    st.rerun()
 
 
 # ============================================================
 # 5) Line 提醒
 # ============================================================
 elif page == '📱 Line 提醒':
-    st.title('📱 一鍵產出 Line 提醒')
-    if st.button('🔔 產出今日紅燈／紫燈提醒'):
+    st.markdown(f"""
+    <div style="margin-bottom:18px;">
+      <h1 style="margin:0; background:linear-gradient(135deg,{COLORS['primary']},{COLORS['primary_dark']});
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+                 font-weight:900; letter-spacing:-0.02em;">Line 提醒</h1>
+      <div style="color:{COLORS['ink_soft']}; font-size:0.9rem; margin-top:4px;">
+        產出今日紅燈 / 紫燈事項，一鍵複製貼到 Line 群組
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button('🔔 產出今日紅燈／紫燈提醒', type='primary', use_container_width=True):
         msg = generate_line_message(tasks)
-        st.text_area('複製以下內容貼到 Line 群組', msg, height=400)
-        st.download_button(
-            '⬇️ 下載成文字檔', msg,
-            file_name=f'line提醒_{date.today()}.txt', mime='text/plain',
-        )
+        st.session_state['line_msg'] = msg
+        st.toast('✨ 訊息已產出')
+
+    if 'line_msg' in st.session_state:
+        msg = st.session_state['line_msg']
+        st.markdown(f"<div style='margin:18px 0 8px; font-weight:600; color:{COLORS['ink']};'>💬 Line 訊息（右上角可一鍵複製）</div>", unsafe_allow_html=True)
+        st.code(msg, language=None)
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            st.download_button(
+                '⬇️ 下載 .txt', msg,
+                file_name=f'line提醒_{date.today()}.txt', mime='text/plain',
+                use_container_width=True,
+            )
+        with col_d2:
+            if st.button('🔄 重新產出', use_container_width=True):
+                del st.session_state['line_msg']
+                st.rerun()
