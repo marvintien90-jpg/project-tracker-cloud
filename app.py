@@ -16,7 +16,7 @@ from streamlit_option_menu import option_menu
 from lib.brand import COLORS, apply_brand
 from lib.config import DEPARTMENTS
 from lib.dashboard import compute_metrics, render_ai_summary, render_focus_cards, render_hero_kpis
-from lib.drive_client import extract_text, get_drive_service, list_doc_files
+from lib.drive_client import extract_text, extract_text_from_url, get_drive_service, list_doc_files
 from lib.ai_parser import parse_meeting
 from lib.reports import export_to_excel, generate_line_message, generate_weekly_report
 from lib.sheets_db import (
@@ -469,14 +469,158 @@ elif page == '匯入會議記錄':
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button('掃描所有子資料夾', type='primary', use_container_width=True):
+    # ── 貼入 URL 快速匯入 ──────────────────────────────────────
+    st.markdown(f"""
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div style="width:4px; height:20px; background:{COLORS['primary']}; border-radius:2px;"></div>
+      <div style="font-weight:700; font-size:1.05rem; color:{COLORS['ink']};">貼入連結匯入</div>
+    </div>
+    <div style="font-size:0.83rem; color:{COLORS['ink_soft']}; margin-bottom:10px;">
+      支援 Google Drive 檔案連結、Google Docs 連結、或任意網頁 URL
+    </div>
+    """, unsafe_allow_html=True)
+
+    _url_col, _btn_col = st.columns([5, 1])
+    with _url_col:
+        _paste_url = st.text_input(
+            '貼入連結',
+            value=st.session_state.get('_paste_url_val', ''),
+            placeholder='https://drive.google.com/… 或 https://docs.google.com/… 或任何網頁網址',
+            label_visibility='collapsed',
+            key='_paste_url_input',
+        )
+    with _btn_col:
+        _parse_url_btn = st.button('🔍 解析', use_container_width=True, help='從連結抓取內容並以 AI 解析')
+
+    if _parse_url_btn and _paste_url.strip():
+        with st.spinner('正在讀取連結內容並進行 AI 解析，請稍候…'):
+            try:
+                service = get_drive_service()
+                _url_text, _url_source = extract_text_from_url(service, _paste_url.strip())
+                if not _url_text.strip():
+                    st.warning('讀取到的內容為空，請確認連結是否正確或有存取權限。')
+                else:
+                    result = parse_meeting(_url_text, _url_source)
+                    _url_tasks = result.get('tasks', [])
+                    now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+                    for t in _url_tasks:
+                        t['source_file'] = _url_source
+                        t['imported_at'] = now_str
+                    st.session_state['_url_parsed_tasks'] = _url_tasks
+                    st.session_state['_url_source'] = _url_source
+                    st.session_state['_paste_url_val'] = _paste_url.strip()
+            except Exception as e:
+                st.error(f'解析失敗：{e}')
+
+    if st.session_state.get('_url_parsed_tasks'):
+        _url_tasks = st.session_state['_url_parsed_tasks']
+        _url_source = st.session_state.get('_url_source', '')
+        st.markdown(f"""
+        <div style="background:rgba(232,93,58,0.07); border-radius:10px; padding:10px 16px; margin:10px 0 6px;
+                    font-size:0.87rem; color:{COLORS['ink']};">
+          <b>來源：</b>{_url_source}　｜　<b>解析出 {len(_url_tasks)} 個行動事項</b>（確認後寫入系統）
+        </div>
+        """, unsafe_allow_html=True)
+        for _t in _url_tasks:
+            _status_text, _color = get_status(_t.get('when_end', ''), int(_t.get('progress', 0)))
+            _color_map = {'purple': COLORS['purple'], 'red': COLORS['red'], 'yellow': COLORS['yellow'],
+                          'green': COLORS['green'], 'complete': COLORS['complete']}
+            _bar_color = _color_map.get(_color, COLORS['green'])
+            st.markdown(f"""
+            <div style="background:white; border-radius:10px; padding:12px 16px; margin-bottom:8px;
+                        border-left:4px solid {_bar_color}; border:1px solid {COLORS['line']};
+                        border-left:4px solid {_bar_color}; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+              <div style="font-weight:700; font-size:0.93rem; color:{COLORS['ink']};">{_t.get('what','')}</div>
+              <div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap; font-size:0.8rem;">
+                <span class="brand-tag primary">{_t.get('who_dept','')}</span>
+                <span class="brand-tag">{_t.get('who_person','')}</span>
+                <span class="brand-tag">{_t.get('when_end','未設定')}</span>
+              </div>
+              <div style="margin-top:6px; font-size:0.8rem; color:{COLORS['ink_soft']};">{_t.get('why','')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        _conf_col, _discard_col = st.columns(2)
+        with _conf_col:
+            if st.button('✅ 確認匯入', type='primary', use_container_width=True, key='_url_confirm'):
+                n = append_tasks(_url_tasks)
+                refresh_data()
+                st.toast(f'成功匯入 {n} 個行動事項')
+                del st.session_state['_url_parsed_tasks']
+                st.session_state.pop('_url_source', None)
+                st.session_state.pop('_paste_url_val', None)
+                st.rerun()
+        with _discard_col:
+            if st.button('🗑️ 捨棄', use_container_width=True, key='_url_discard'):
+                del st.session_state['_url_parsed_tasks']
+                st.session_state.pop('_url_source', None)
+                st.session_state.pop('_paste_url_val', None)
+                st.rerun()
+
+    st.divider()
+    st.markdown(f"""
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div style="width:4px; height:20px; background:{COLORS['primary']}; border-radius:2px;"></div>
+      <div style="font-weight:700; font-size:1.05rem; color:{COLORS['ink']};">掃描 Drive 資料夾</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 額外資料夾管理 ────────────────────────────────────────
+    if '_extra_folder_ids' not in st.session_state:
+        st.session_state['_extra_folder_ids'] = []
+
+    def _parse_folder_url(raw: str) -> str:
+        raw = raw.strip()
+        if 'folders/' in raw:
+            return raw.split('folders/')[-1].split('?')[0].split('/')[0].strip()
+        return raw
+
+    _fa_col, _fb_col = st.columns([5, 1])
+    with _fa_col:
+        _new_folder_url = st.text_input(
+            '新增掃描資料夾',
+            placeholder='貼入其他 Google Drive 資料夾網址或 ID，可新增多個…',
+            label_visibility='collapsed',
+            key='_new_folder_input',
+        )
+    with _fb_col:
+        if st.button('＋ 新增', use_container_width=True, key='_add_folder_btn'):
+            _fid = _parse_folder_url(_new_folder_url)
+            if _fid and _fid not in st.session_state['_extra_folder_ids']:
+                st.session_state['_extra_folder_ids'].append(_fid)
+                st.rerun()
+
+    if st.session_state['_extra_folder_ids']:
+        st.markdown(f"<div style='font-size:0.82rem; color:{COLORS['ink_soft']}; margin-bottom:4px;'>額外掃描資料夾：</div>", unsafe_allow_html=True)
+        for _eidx, _eid in enumerate(st.session_state['_extra_folder_ids']):
+            _rc1, _rc2 = st.columns([6, 1])
+            with _rc1:
+                _disp = _eid[:28] + '…' if len(_eid) > 28 else _eid
+                _ink = COLORS['ink']
+                st.markdown(f'<div style="background:#F8F9FA; border-radius:6px; padding:5px 10px; font-size:0.83rem; font-family:monospace; color:{_ink};">📂 {_disp}</div>', unsafe_allow_html=True)
+            with _rc2:
+                if st.button('✕', key=f'_rm_folder_{_eidx}', use_container_width=True):
+                    st.session_state['_extra_folder_ids'].pop(_eidx)
+                    st.rerun()
+
+    _all_folder_count = 1 + len(st.session_state['_extra_folder_ids'])
+    _scan_label = f'掃描所有子資料夾（共 {_all_folder_count} 個來源）' if _all_folder_count > 1 else '掃描所有子資料夾'
+
+    if st.button(_scan_label, type='primary', use_container_width=True):
         with st.spinner('正在掃描 Google Drive…'):
             try:
                 service = get_drive_service()
                 from lib.config import get_drive_folder_id
-                files = list_doc_files(service, get_drive_folder_id())
+                _folder_ids = [get_drive_folder_id()] + st.session_state['_extra_folder_ids']
+                files: list[dict] = []
+                _seen_ids: set[str] = set()
+                for _fid in _folder_ids:
+                    for _f in list_doc_files(service, _fid):
+                        if _f['id'] not in _seen_ids:
+                            _seen_ids.add(_f['id'])
+                            files.append(_f)
                 st.session_state['drive_files'] = files
-                st.toast(f'找到 {len(files)} 個會議記錄檔案')
+                st.toast(f'找到 {len(files)} 個會議記錄檔案（掃描 {len(_folder_ids)} 個資料夾）')
             except Exception as e:
                 st.error(f'掃描失敗：{e}')
 
