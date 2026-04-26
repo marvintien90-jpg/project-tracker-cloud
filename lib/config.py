@@ -26,6 +26,7 @@ DRIVE_SCOPES = [
 TASKS_SHEET = 'tasks'
 HISTORY_SHEET = 'progress_history'
 SCANNED_SHEET = 'scanned_files'
+SETTINGS_SHEET = 'app_settings'
 
 TASK_COLUMNS = [
     'task_id', 'what', 'why', 'who_dept', 'who_person', 'where',
@@ -34,6 +35,7 @@ TASK_COLUMNS = [
 ]
 HISTORY_COLUMNS = ['date', 'total', 'completed', 'avg_progress', 'completion_rate']
 SCANNED_COLUMNS = ['file_id', 'file_name', 'scanned_at']
+SETTINGS_COLUMNS = ['key', 'value', 'updated_at']
 
 
 def _from_streamlit_secrets() -> dict[str, Any] | None:

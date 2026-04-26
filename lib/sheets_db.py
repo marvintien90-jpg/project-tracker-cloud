@@ -18,7 +18,7 @@ from google.oauth2.service_account import Credentials
 
 from .config import (
     DRIVE_SCOPES, HISTORY_COLUMNS, HISTORY_SHEET, SCANNED_COLUMNS,
-    SCANNED_SHEET, TASK_COLUMNS, TASKS_SHEET,
+    SCANNED_SHEET, SETTINGS_COLUMNS, SETTINGS_SHEET, TASK_COLUMNS, TASKS_SHEET,
     get_service_account_info, get_spreadsheet_id,
 )
 
@@ -190,3 +190,32 @@ def clear_caches() -> None:
     """讓下次 _get_client/_get_spreadsheet 重新連線（給測試或 rerun 用）。"""
     _get_client.cache_clear()
     _get_spreadsheet.cache_clear()
+
+
+# ============================================================
+# app_settings  — 持久化 key-value 設定（跨 session / 部署）
+# ============================================================
+def get_setting(key: str, default: str = '') -> str:
+    """讀取設定值；找不到就回傳 default。"""
+    try:
+        ws = _get_or_create_worksheet(SETTINGS_SHEET, SETTINGS_COLUMNS)
+        keys = ws.col_values(1)  # 含 header
+        if key in keys:
+            row_idx = keys.index(key)  # 0-based，0 = header
+            return ws.cell(row_idx + 1, 2).value or default
+    except Exception:
+        pass
+    return default
+
+
+def set_setting(key: str, value: str) -> None:
+    """寫入或更新設定值（upsert）。"""
+    ws = _get_or_create_worksheet(SETTINGS_SHEET, SETTINGS_COLUMNS)
+    now = datetime.now().strftime('%Y-%m-%d %H:%M')
+    keys = ws.col_values(1)  # 含 header
+    row = [key, value, now]
+    if key in keys:
+        idx = keys.index(key)  # 0-based，0 = header
+        ws.update(f'A{idx + 1}', [row], value_input_option='USER_ENTERED')
+    else:
+        ws.append_row(row, value_input_option='USER_ENTERED')

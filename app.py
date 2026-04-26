@@ -20,8 +20,9 @@ from lib.drive_client import extract_text, extract_text_from_url, get_drive_serv
 from lib.ai_parser import parse_meeting
 from lib.reports import export_to_excel, generate_line_message, generate_weekly_report
 from lib.sheets_db import (
-    append_tasks, append_scanned_files, delete_task, load_history,
-    load_scanned_file_ids, load_tasks, update_task, upsert_history,
+    append_tasks, append_scanned_files, delete_task, get_setting,
+    load_history, load_scanned_file_ids, load_tasks,
+    set_setting, update_task, upsert_history,
 )
 from lib.status import COLOR_EMOJI, get_status
 
@@ -566,15 +567,66 @@ elif page == '匯入會議記錄':
     </div>
     """, unsafe_allow_html=True)
 
-    # ── 額外資料夾管理 ────────────────────────────────────────
-    if '_extra_folder_ids' not in st.session_state:
-        st.session_state['_extra_folder_ids'] = []
-
+    # ── 持久化預設資料夾（讀 Google Sheets app_settings）────────
     def _parse_folder_url(raw: str) -> str:
         raw = raw.strip()
         if 'folders/' in raw:
             return raw.split('folders/')[-1].split('?')[0].split('/')[0].strip()
         return raw
+
+    # 初次進頁或 session 空白時，從 Sheets 讀預設資料夾
+    if '_default_folder_loaded' not in st.session_state:
+        try:
+            from lib.config import get_drive_folder_id as _cfg_folder
+            _sheets_folder = get_setting('default_folder_id', '')
+            _config_folder = ''
+            try:
+                _config_folder = _cfg_folder()
+            except Exception:
+                pass
+            # Sheets 優先，否則 fallback 到 secrets/env
+            st.session_state['_saved_folder_id'] = _sheets_folder or _config_folder
+        except Exception:
+            st.session_state['_saved_folder_id'] = ''
+        st.session_state['_default_folder_loaded'] = True
+
+    _saved_fid = st.session_state.get('_saved_folder_id', '')
+
+    # 顯示目前預設資料夾 + 修改輸入
+    st.markdown(f"<div style='font-size:0.85rem; color:{COLORS['ink_soft']}; margin-bottom:6px;'>📌 預設掃描資料夾（永久儲存）</div>", unsafe_allow_html=True)
+    _def_c1, _def_c2, _def_c3 = st.columns([5, 1, 1])
+    with _def_c1:
+        _default_url_input = st.text_input(
+            '預設資料夾',
+            value=_saved_fid,
+            placeholder='貼入 Google Drive 資料夾網址或 ID…',
+            label_visibility='collapsed',
+            key='_default_folder_input',
+        )
+    _new_default_fid = _parse_folder_url(_default_url_input)
+    with _def_c2:
+        if st.button('💾 儲存', use_container_width=True, key='_save_default_folder',
+                     help='永久儲存此資料夾為預設，重啟後仍有效'):
+            if _new_default_fid:
+                try:
+                    set_setting('default_folder_id', _new_default_fid)
+                    st.session_state['_saved_folder_id'] = _new_default_fid
+                    st.toast('✅ 預設資料夾已儲存')
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f'儲存失敗：{_e}')
+    with _def_c3:
+        if _new_default_fid:
+            _disp_fid = _new_default_fid[:14] + '…' if len(_new_default_fid) > 14 else _new_default_fid
+            st.success(f'`{_disp_fid}`')
+        else:
+            st.warning('未設定')
+
+    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+
+    # ── 額外資料夾管理 ────────────────────────────────────────
+    if '_extra_folder_ids' not in st.session_state:
+        st.session_state['_extra_folder_ids'] = []
 
     _fa_col, _fb_col = st.columns([5, 1])
     with _fa_col:
@@ -611,8 +663,12 @@ elif page == '匯入會議記錄':
         with st.spinner('正在掃描 Google Drive…'):
             try:
                 service = get_drive_service()
-                from lib.config import get_drive_folder_id
-                _folder_ids = [get_drive_folder_id()] + st.session_state['_extra_folder_ids']
+                # 優先使用持久化儲存的資料夾，fallback 到 secrets/env
+                _primary_fid = st.session_state.get('_saved_folder_id', '') or _new_default_fid
+                if not _primary_fid:
+                    from lib.config import get_drive_folder_id
+                    _primary_fid = get_drive_folder_id()
+                _folder_ids = [_primary_fid] + st.session_state['_extra_folder_ids']
                 files: list[dict] = []
                 _seen_ids: set[str] = set()
                 for _fid in _folder_ids:
