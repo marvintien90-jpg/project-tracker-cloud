@@ -20,7 +20,8 @@ from lib.drive_client import extract_text, extract_text_from_url, get_drive_serv
 from lib.ai_parser import parse_meeting
 from lib.reports import export_to_excel, generate_line_message, generate_weekly_report
 from lib.sheets_db import (
-    append_tasks, delete_task, load_history, load_tasks, update_task, upsert_history,
+    append_tasks, append_scanned_files, delete_task, load_history,
+    load_scanned_file_ids, load_tasks, update_task, upsert_history,
 )
 from lib.status import COLOR_EMOJI, get_status
 
@@ -626,57 +627,140 @@ elif page == '匯入會議記錄':
 
     if 'drive_files' in st.session_state and st.session_state['drive_files']:
         files = st.session_state['drive_files']
-        st.markdown(f"<div style='color:{COLORS['ink_soft']}; font-size:0.85rem; margin:14px 0 6px;'>Drive 中共有 <b style='color:{COLORS['ink']};'>{len(files)}</b> 份可解析文件</div>", unsafe_allow_html=True)
-        selected = st.selectbox('選擇要匯入的會議記錄', [f['name'] for f in files], label_visibility='collapsed')
-        selected_file = next(f for f in files if f['name'] == selected)
-        if st.button('AI 解析並匯入', type='primary', use_container_width=True):
-            with st.spinner('AI 正在解析會議記錄，請稍候…'):
-                try:
-                    service = get_drive_service()
-                    text = extract_text(service, selected_file['id'], selected_file['mimeType'], selected_file['name'])
-                    result = parse_meeting(text, selected_file['name'])
-                    new_tasks = result.get('tasks', [])
-                    now = datetime.now().strftime('%Y-%m-%d %H:%M')
-                    for t in new_tasks:
-                        t['source_file'] = selected_file['name']
-                        t['imported_at'] = now
-                    n = append_tasks(new_tasks)
-                    refresh_data()
-                    st.toast(f'成功匯入 {n} 個行動事項')
-                    st.session_state['parsed_tasks'] = new_tasks
-                except Exception as e:
-                    st.error(f'解析失敗：{e}')
 
-    if 'parsed_tasks' in st.session_state:
+        # ── 讀取已匯入的 file_id 集合（重複匯入防護）──
+        try:
+            _imported_ids = load_scanned_file_ids()
+        except Exception:
+            _imported_ids = set()
+
+        _new_files = [f for f in files if f['id'] not in _imported_ids]
+        _done_files = [f for f in files if f['id'] in _imported_ids]
+
+        _ink_soft = COLORS['ink_soft']
+        _ink = COLORS['ink']
+        st.markdown(
+            f"<div style='color:{_ink_soft}; font-size:0.85rem; margin:14px 0 6px;'>"
+            f"Drive 中共有 <b style='color:{_ink};'>{len(files)}</b> 份可解析文件，"
+            f"其中 <b style='color:{COLORS['green']};'>{len(_done_files)}</b> 份已匯入、"
+            f"<b style='color:{_ink};'>{len(_new_files)}</b> 份尚未匯入</div>",
+            unsafe_allow_html=True,
+        )
+
+        # 下拉選單：未匯入優先，已匯入加 ✓ 標示
+        _file_options = [f['name'] for f in _new_files] + [f'✓ {f["name"]}' for f in _done_files]
+        _file_map = {f['name']: f for f in files}
+        _file_map.update({f'✓ {f["name"]}': f for f in _done_files})
+
+        if not _file_options:
+            st.info('所有文件均已匯入過，如需重新匯入請從下方選取。')
+        else:
+            _selected_label = st.selectbox('選擇要匯入的會議記錄', _file_options, label_visibility='collapsed')
+            _selected_file = _file_map[_selected_label]
+            _already_imported = _selected_file['id'] in _imported_ids
+
+            if _already_imported:
+                st.warning(f'⚠️ 此文件已匯入過（{_selected_file["name"]}），再次解析可能產生重複任務。')
+
+            if st.button('🤖 AI 解析（預覽後再決定是否匯入）', type='primary', use_container_width=True):
+                with st.spinner('AI 正在解析會議記錄，請稍候…'):
+                    try:
+                        service = get_drive_service()
+                        text = extract_text(service, _selected_file['id'], _selected_file['mimeType'], _selected_file['name'])
+                        result = parse_meeting(text, _selected_file['name'])
+                        _parsed = result.get('tasks', [])
+                        now = datetime.now().strftime('%Y-%m-%d %H:%M')
+                        for t in _parsed:
+                            t['source_file'] = _selected_file['name']
+                            t['imported_at'] = now
+                        st.session_state['parsed_tasks'] = _parsed
+                        st.session_state['parsed_file'] = _selected_file
+                        # 預設全勾
+                        st.session_state['parsed_checked'] = [True] * len(_parsed)
+                        st.toast(f'解析完成，共找到 {len(_parsed)} 個行動事項，請確認後匯入')
+                    except Exception as e:
+                        st.error(f'解析失敗：{e}')
+
+    # ── 勾選式匯入預覽 ─────────────────────────────────────
+    if st.session_state.get('parsed_tasks'):
+        _parsed_list = st.session_state['parsed_tasks']
+        _parsed_file = st.session_state.get('parsed_file', {})
+        _checked = st.session_state.get('parsed_checked', [True] * len(_parsed_list))
+
         st.markdown(f"""
-        <div style="margin:24px 0 10px; display:flex; align-items:center; gap:10px;">
+        <div style="margin:24px 0 8px; display:flex; align-items:center; gap:10px;">
           <div style="width:4px; height:20px; background:{COLORS['primary']}; border-radius:2px;"></div>
-          <div style="font-weight:700; font-size:1.05rem; color:{COLORS['ink']};">AI 解析結果</div>
+          <div style="font-weight:700; font-size:1.05rem; color:{COLORS['ink']};">
+            AI 解析結果 — 請勾選要匯入的項目（共 {len(_parsed_list)} 項）
+          </div>
         </div>
         """, unsafe_allow_html=True)
-        for t in st.session_state['parsed_tasks']:
-            status_text, color = get_status(t.get('when_end', ''), int(t.get('progress', 0)))
-            color_map = {'purple': COLORS['purple'], 'red': COLORS['red'], 'yellow': COLORS['yellow'],
-                         'green': COLORS['green'], 'complete': COLORS['complete']}
-            bar_color = color_map.get(color, COLORS['green'])
-            st.markdown(f"""
-            <div style="background:white; border-radius:12px; padding:14px 18px; margin-bottom:10px;
-                        border-left:4px solid {bar_color}; border-top:1px solid {COLORS['line']};
-                        border-right:1px solid {COLORS['line']}; border-bottom:1px solid {COLORS['line']};
-                        box-shadow:0 2px 6px rgba(0,0,0,0.04);">
-              <div style="font-weight:700; font-size:0.95rem; color:{COLORS['ink']};">{t.get('what','')}</div>
-              <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-                <span class="brand-tag primary">{t.get('who_dept','')}</span>
-                <span class="brand-tag">{t.get('who_person','')}</span>
-                <span class="brand-tag {color}">{status_text}</span>
-                <span class="brand-tag"><i class="bi bi-calendar-event" style="margin-right:4px;"></i>{t.get('when_end','未設定')}</span>
-              </div>
-              <div style="margin-top:8px; font-size:0.82rem; color:{COLORS['ink_soft']}; line-height:1.5; display:flex; align-items:flex-start; gap:6px;">
-                <i class="bi bi-lightbulb" style="color:{COLORS['primary']}; margin-top:2px;"></i>
-                <span>{t.get('why','')}</span>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+
+        _sel_col1, _sel_col2, _ = st.columns([1, 1, 4])
+        with _sel_col1:
+            if st.button('全選', key='_chk_all', use_container_width=True):
+                st.session_state['parsed_checked'] = [True] * len(_parsed_list)
+                st.rerun()
+        with _sel_col2:
+            if st.button('全不選', key='_chk_none', use_container_width=True):
+                st.session_state['parsed_checked'] = [False] * len(_parsed_list)
+                st.rerun()
+
+        _new_checked = list(_checked)
+        for _i, _t in enumerate(_parsed_list):
+            _status_text, _color = get_status(_t.get('when_end', ''), int(_t.get('progress', 0)))
+            _color_map = {'purple': COLORS['purple'], 'red': COLORS['red'], 'yellow': COLORS['yellow'],
+                          'green': COLORS['green'], 'complete': COLORS['complete']}
+            _bar_color = _color_map.get(_color, COLORS['green'])
+            _chk_col, _card_col = st.columns([0.5, 9.5])
+            with _chk_col:
+                st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
+                _new_checked[_i] = st.checkbox('', value=_checked[_i], key=f'_chk_{_i}', label_visibility='collapsed')
+            with _card_col:
+                _opacity = '1' if _new_checked[_i] else '0.4'
+                st.markdown(f"""
+                <div style="background:white; border-radius:12px; padding:14px 18px; margin-bottom:6px;
+                            border-left:4px solid {_bar_color if _new_checked[_i] else '#ccc'};
+                            border-top:1px solid {COLORS['line']}; border-right:1px solid {COLORS['line']};
+                            border-bottom:1px solid {COLORS['line']}; box-shadow:0 2px 6px rgba(0,0,0,0.04);
+                            opacity:{_opacity};">
+                  <div style="font-weight:700; font-size:0.95rem; color:{COLORS['ink']};">{_t.get('what','')}</div>
+                  <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+                    <span class="brand-tag primary">{_t.get('who_dept','')}</span>
+                    <span class="brand-tag">{_t.get('who_person','')}</span>
+                    <span class="brand-tag {_color}">{_status_text}</span>
+                    <span class="brand-tag"><i class="bi bi-calendar-event" style="margin-right:4px;"></i>{_t.get('when_end','未設定')}</span>
+                  </div>
+                  <div style="margin-top:8px; font-size:0.82rem; color:{COLORS['ink_soft']}; line-height:1.5;">
+                    <i class="bi bi-lightbulb" style="color:{COLORS['primary']}; margin-right:6px;"></i>{_t.get('why','')}
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.session_state['parsed_checked'] = _new_checked
+        _selected_count = sum(_new_checked)
+
+        _confirm_col, _discard_col = st.columns(2)
+        with _confirm_col:
+            if st.button(f'✅ 確認匯入（{_selected_count} 項）', type='primary', use_container_width=True,
+                         key='_confirm_import', disabled=_selected_count == 0):
+                _to_import = [t for t, c in zip(_parsed_list, _new_checked) if c]
+                n = append_tasks(_to_import)
+                # 記錄此檔案為已匯入（防重複）
+                if _parsed_file:
+                    append_scanned_files([{'file_id': _parsed_file['id'], 'file_name': _parsed_file['name']}])
+                refresh_data()
+                st.toast(f'成功匯入 {n} 個行動事項')
+                del st.session_state['parsed_tasks']
+                st.session_state.pop('parsed_file', None)
+                st.session_state.pop('parsed_checked', None)
+                st.rerun()
+        with _discard_col:
+            if st.button('🗑️ 捨棄解析結果', use_container_width=True, key='_discard_import'):
+                del st.session_state['parsed_tasks']
+                st.session_state.pop('parsed_file', None)
+                st.session_state.pop('parsed_checked', None)
+                st.rerun()
 
 
 # ============================================================

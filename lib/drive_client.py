@@ -112,10 +112,30 @@ def extract_text(service, file_id: str, mime_type: str, filename: str) -> str:
         return _export_text(service, file_id)
 
     if mime_type == DOC_MIME:
-        copied = service.files().copy(
-            fileId=file_id,
-            body={'mimeType': GDOC_MIME, 'name': f'__tmp__{filename}'},
-        ).execute()
+        # 先嘗試直接以 python-docx 讀（許多 .doc 實際上是 .docx 改名）
+        try:
+            fh = _download_bytes(service, file_id)
+            doc = Document(fh)
+            text = '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+            if text.strip():
+                return text
+        except Exception:
+            pass  # 真正的舊版 .doc，改用 Google Doc 轉換
+
+        # 備援：複製成 Google Doc 再 export
+        try:
+            copied = service.files().copy(
+                fileId=file_id,
+                body={'mimeType': GDOC_MIME, 'name': f'__tmp__{filename}'},
+            ).execute()
+        except Exception as copy_err:
+            err_str = str(copy_err)
+            if 'storageQuotaExceeded' in err_str:
+                raise RuntimeError(
+                    f'無法解析「{filename}」：Service Account 的 Drive 儲存空間已滿，'
+                    '請將檔案另存為 .docx 或 Google 文件格式後重試。'
+                )
+            raise
         gdoc_id = copied['id']
         try:
             return _export_text(service, gdoc_id)
