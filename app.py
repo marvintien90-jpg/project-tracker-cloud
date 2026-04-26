@@ -624,37 +624,85 @@ elif page == '匯入會議記錄':
 
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
-    # ── 額外資料夾管理 ────────────────────────────────────────
-    if '_extra_folder_ids' not in st.session_state:
-        st.session_state['_extra_folder_ids'] = []
+    # ── 額外掃描資料夾（永久儲存）────────────────────────────
+    import json as _json
+
+    def _save_extra_folders(ids: list) -> None:
+        """將額外資料夾清單序列化存進 Sheets。"""
+        set_setting('extra_folder_ids', _json.dumps(ids, ensure_ascii=False))
+
+    def _load_extra_folders() -> list:
+        raw = get_setting('extra_folder_ids', '[]')
+        try:
+            return _json.loads(raw) if raw else []
+        except Exception:
+            return []
+
+    # 初次載入時從 Sheets 讀取已儲存的額外資料夾
+    if '_extra_folders_loaded' not in st.session_state:
+        st.session_state['_extra_folder_ids'] = _load_extra_folders()
+        st.session_state['_extra_folders_loaded'] = True
+
+    st.markdown(
+        f"<div style='font-size:0.85rem; color:{COLORS['ink_soft']}; margin-bottom:6px;'>"
+        f"📂 常態掃描資料夾（永久儲存，重啟後仍保留）</div>",
+        unsafe_allow_html=True,
+    )
 
     _fa_col, _fb_col = st.columns([5, 1])
     with _fa_col:
         _new_folder_url = st.text_input(
             '新增掃描資料夾',
-            placeholder='貼入其他 Google Drive 資料夾網址或 ID，可新增多個…',
+            placeholder='貼入 Google Drive 資料夾網址或 ID，可新增多個…',
             label_visibility='collapsed',
             key='_new_folder_input',
         )
     with _fb_col:
         if st.button('＋ 新增', use_container_width=True, key='_add_folder_btn'):
             _fid = _parse_folder_url(_new_folder_url)
-            if _fid and _fid not in st.session_state['_extra_folder_ids']:
-                st.session_state['_extra_folder_ids'].append(_fid)
-                st.rerun()
+            if not _new_folder_url.strip():
+                st.warning('⚠️ 請先貼入資料夾網址再按新增')
+            elif not _fid:
+                st.error('❌ 無法解析此網址，請確認格式正確')
+            elif _fid == st.session_state.get('_saved_folder_id', ''):
+                st.warning('⚠️ 此資料夾已是預設資料夾，無需重複新增')
+            elif _fid in st.session_state['_extra_folder_ids']:
+                st.warning('⚠️ 此資料夾已在清單中')
+            else:
+                try:
+                    st.session_state['_extra_folder_ids'].append(_fid)
+                    _save_extra_folders(st.session_state['_extra_folder_ids'])
+                    st.toast(f'✅ 已新增並儲存資料夾：{_fid[:20]}…')
+                    st.rerun()
+                except Exception as _add_err:
+                    st.session_state['_extra_folder_ids'].pop()
+                    st.error(f'❌ 新增失敗：{_add_err}')
 
     if st.session_state['_extra_folder_ids']:
-        st.markdown(f"<div style='font-size:0.82rem; color:{COLORS['ink_soft']}; margin-bottom:4px;'>額外掃描資料夾：</div>", unsafe_allow_html=True)
+        _ink = COLORS['ink']
+        _ink_soft = COLORS['ink_soft']
         for _eidx, _eid in enumerate(st.session_state['_extra_folder_ids']):
-            _rc1, _rc2 = st.columns([6, 1])
+            _rc1, _rc2 = st.columns([7, 1])
             with _rc1:
-                _disp = _eid[:28] + '…' if len(_eid) > 28 else _eid
-                _ink = COLORS['ink']
-                st.markdown(f'<div style="background:#F8F9FA; border-radius:6px; padding:5px 10px; font-size:0.83rem; font-family:monospace; color:{_ink};">📂 {_disp}</div>', unsafe_allow_html=True)
+                _disp = _eid[:32] + '…' if len(_eid) > 32 else _eid
+                st.markdown(
+                    f'<div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; '
+                    f'padding:7px 12px; font-size:0.83rem; font-family:monospace; color:{_ink}; '
+                    f'display:flex; align-items:center; gap:8px; margin-bottom:4px;">'
+                    f'<span style="color:#16A34A; font-size:0.9rem;">✓</span> {_disp}</div>',
+                    unsafe_allow_html=True,
+                )
             with _rc2:
-                if st.button('✕', key=f'_rm_folder_{_eidx}', use_container_width=True):
-                    st.session_state['_extra_folder_ids'].pop(_eidx)
+                if st.button('✕ 移除', key=f'_rm_folder_{_eidx}', use_container_width=True):
+                    _removed = st.session_state['_extra_folder_ids'].pop(_eidx)
+                    try:
+                        _save_extra_folders(st.session_state['_extra_folder_ids'])
+                        st.toast(f'🗑️ 已移除資料夾：{_removed[:20]}…')
+                    except Exception:
+                        pass
                     st.rerun()
+    else:
+        st.caption('尚未新增任何常態資料夾。貼入網址後按「＋ 新增」即可永久儲存。')
 
     _all_folder_count = 1 + len(st.session_state['_extra_folder_ids'])
     _scan_label = f'掃描所有子資料夾（共 {_all_folder_count} 個來源）' if _all_folder_count > 1 else '掃描所有子資料夾'
