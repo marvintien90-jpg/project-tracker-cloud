@@ -16,7 +16,10 @@ from streamlit_option_menu import option_menu
 from lib.brand import COLORS, apply_brand
 from lib.config import DEPARTMENTS
 from lib.dashboard import compute_metrics, render_ai_summary, render_focus_cards, render_hero_kpis
-from lib.drive_client import extract_text, extract_text_from_url, get_drive_service, list_doc_files
+from lib.drive_client import (
+    cleanup_service_account_drive, extract_text, extract_text_from_url,
+    get_drive_service, get_service_account_quota, list_doc_files,
+)
 from lib.ai_parser import parse_meeting
 from lib.reports import export_to_excel, generate_line_message, generate_weekly_report
 from lib.sheets_db import (
@@ -707,7 +710,41 @@ elif page == '匯入會議記錄':
     _all_folder_count = 1 + len(st.session_state['_extra_folder_ids'])
     _scan_label = f'掃描所有子資料夾（共 {_all_folder_count} 個來源）' if _all_folder_count > 1 else '掃描所有子資料夾'
 
-    if st.button(_scan_label, type='primary', use_container_width=True):
+    _scan_col, _cleanup_col = st.columns([3, 1])
+    with _scan_col:
+        _do_scan = st.button(_scan_label, type='primary', use_container_width=True)
+    with _cleanup_col:
+        _do_cleanup = st.button('🧹 清理暫存空間', use_container_width=True,
+                                help='刪除 Service Account Drive 內的暫存檔，釋放空間以解決 .doc 解析失敗問題')
+
+    if _do_cleanup:
+        with st.spinner('正在查詢並清理 Service Account Drive 暫存檔…'):
+            try:
+                _svc = get_drive_service()
+                _quota_before = get_service_account_quota(_svc)
+                _result = cleanup_service_account_drive(_svc, delete_all=False)
+                _quota_after = get_service_account_quota(_svc)
+                _freed_mb = _result['freed_bytes'] / 1024 / 1024
+                _used_before_mb = _quota_before['used'] / 1024 / 1024
+                _used_after_mb = _quota_after['used'] / 1024 / 1024
+                if _result['deleted'] > 0:
+                    st.success(
+                        f"✅ 清理完成：刪除 {_result['deleted']} 個暫存檔，"
+                        f"釋放約 {_freed_mb:.1f} MB　"
+                        f"（{_used_before_mb:.0f} MB → {_used_after_mb:.0f} MB）"
+                    )
+                else:
+                    st.info(
+                        f'ℹ️ 無暫存檔需清理。'
+                        f'Service Account 已用 {_used_after_mb:.0f} MB'
+                        + (f' / {_quota_after["limit"] / 1024 / 1024:.0f} MB' if _quota_after['limit'] else '')
+                    )
+                if _result['errors']:
+                    st.warning(f'部分刪除失敗：{"; ".join(_result["errors"][:3])}')
+            except Exception as _ce:
+                st.error(f'清理失敗：{_ce}')
+
+    if _do_scan:
         with st.spinner('正在掃描 Google Drive…'):
             try:
                 service = get_drive_service()

@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import re
 import warnings
+from typing import Any
 
 from docx import Document
 from google.oauth2.service_account import Credentials
@@ -112,17 +113,42 @@ def extract_text(service, file_id: str, mime_type: str, filename: str) -> str:
         return _export_text(service, file_id)
 
     if mime_type == DOC_MIME:
-        # 先嘗試直接以 python-docx 讀（許多 .doc 實際上是 .docx 改名）
+        fh = _download_bytes(service, file_id)
+        raw = fh.read()
+        fh.seek(0)
+
+        # 方法一：python-docx（許多 .doc 其實是 .docx 改名）
         try:
-            fh = _download_bytes(service, file_id)
-            doc = Document(fh)
+            doc = Document(io.BytesIO(raw))
             text = '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
             if text.strip():
                 return text
         except Exception:
-            pass  # 真正的舊版 .doc，改用 Google Doc 轉換
+            pass
 
-        # 備援：複製成 Google Doc 再 export
+        # 方法二：olefile 直讀舊版 Word Binary Format
+        try:
+            import olefile
+            ole = olefile.OleFileIO(io.BytesIO(raw))
+            # Word 文字存在 Table stream（UTF-16 LE）
+            for stream_name in ('WordDocument', '1Table', '0Table'):
+                if ole.exists(stream_name):
+                    data = ole.openstream(stream_name).read()
+                    # 嘗試 UTF-16 LE 解碼後清理非文字字元
+                    try:
+                        decoded = data.decode('utf-16-le', errors='ignore')
+                        cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', decoded)
+                        cleaned = re.sub(r' {4,}', '\n', cleaned).strip()
+                        if len(cleaned) > 50:  # 有實質內容才採用
+                            return cleaned
+                    except Exception:
+                        continue
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+        # 方法三：複製成 Google Doc 再 export（需要 Service Account 有儲存空間）
         try:
             copied = service.files().copy(
                 fileId=file_id,
@@ -132,8 +158,9 @@ def extract_text(service, file_id: str, mime_type: str, filename: str) -> str:
             err_str = str(copy_err)
             if 'storageQuotaExceeded' in err_str:
                 raise RuntimeError(
-                    f'無法解析「{filename}」：Service Account 的 Drive 儲存空間已滿，'
-                    '請將檔案另存為 .docx 或 Google 文件格式後重試。'
+                    f'無法解析「{filename}」：三種讀取方式均失敗。'
+                    '建議：① 點下方「清理 Service Account 暫存空間」釋放空間後重試，'
+                    '或 ② 將檔案在 Google Drive 中另存為 Google 文件格式。'
                 )
             raise
         gdoc_id = copied['id']
@@ -204,3 +231,71 @@ def extract_text_from_url(service, url: str) -> tuple[str, str]:
     text = soup.get_text(separator='\n', strip=True)
     source_name = soup.title.string.strip() if soup.title else url
     return text, source_name
+
+
+# ============================================================
+# Service Account Drive 空間管理
+# ============================================================
+
+def get_service_account_quota(service) -> dict[str, int]:
+    """回傳 Service Account 自身的 Drive 儲存空間資訊（bytes）。"""
+    about = service.about().get(fields='storageQuota').execute()
+    quota = about.get('storageQuota', {})
+    return {
+        'used': int(quota.get('usage', 0)),
+        'limit': int(quota.get('limit', 0)),
+    }
+
+
+def list_service_account_files(service) -> list[dict[str, Any]]:
+    """列出 Service Account 自己 Drive 中的所有檔案（含大小）。"""
+    out: list[dict[str, Any]] = []
+    page_token = None
+    while True:
+        resp = service.files().list(
+            q="'me' in owners and trashed=false",
+            fields='nextPageToken, files(id, name, mimeType, size, createdTime)',
+            spaces='drive',
+            pageSize=200,
+            pageToken=page_token,
+        ).execute()
+        out.extend(resp.get('files', []))
+        page_token = resp.get('nextPageToken')
+        if not page_token:
+            break
+    return out
+
+
+def cleanup_service_account_drive(service, delete_all: bool = False) -> dict[str, Any]:
+    """清理 Service Account Drive 中的暫存/垃圾檔案。
+
+    delete_all=False：只刪除 __tmp__ 開頭的暫存檔
+    delete_all=True ：刪除所有 Service Account 自己建立的檔案
+    （Google Sheets / 使用者資料完全不受影響）
+
+    回傳：{'deleted': N, 'freed_bytes': N, 'errors': [...]}
+    """
+    files = list_service_account_files(service)
+    deleted = 0
+    freed = 0
+    errors: list[str] = []
+
+    for f in files:
+        name = f.get('name', '')
+        should_delete = delete_all or name.startswith('__tmp__')
+        if not should_delete:
+            continue
+        try:
+            service.files().delete(fileId=f['id']).execute()
+            deleted += 1
+            freed += int(f.get('size', 0))
+        except Exception as e:
+            errors.append(f'{name}: {e}')
+
+    # 同時清空垃圾桶
+    try:
+        service.files().emptyTrash().execute()
+    except Exception:
+        pass
+
+    return {'deleted': deleted, 'freed_bytes': freed, 'errors': errors}
