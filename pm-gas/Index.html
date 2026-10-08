@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --accent-soft: #e8efff; --danger: #dc2626; --danger-soft: #fdecec;
+    --warn: #d97706; --warn-soft: #fff4e0; --ok: #15803d; --ok-soft: #e7f6ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --card: #1b1e25; --text: #e8eaf0; --muted: #9aa1ad; --line: #2b2f38;
+      --accent: #6b9bff; --accent-soft: #1e2a44; --danger: #f87171; --danger-soft: #3a1c1c;
+      --warn: #fbbf24; --warn-soft: #3a2e14; --ok: #4ade80; --ok-soft: #173023;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 16px 8px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  .stats { display: flex; gap: 8px; margin-bottom: 8px; }
+  .stat { flex: 1; background: var(--card); border-radius: 10px; padding: 8px 10px; border: 1px solid var(--line); }
+  .stat b { display: block; font-size: 18px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .stat.alert b { color: var(--danger); }
+  .search { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font-size: 15px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font-size: 13px; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { padding: 4px 16px; }
+  .group-title { font-size: 13px; color: var(--muted); margin: 14px 2px 6px; }
+  .item { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px; margin-bottom: 8px; align-items: flex-start; }
+  .item.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .item.done .title { text-decoration: line-through; color: var(--muted); }
+  .check { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 2px solid var(--line);
+    display: grid; place-items: center; margin-top: 1px; background: var(--card); }
+  .item.sel .check { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .body { flex: 1; min-width: 0; }
+  .title { font-weight: 600; word-break: break-word; }
+  .meta { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+  .tag { padding: 1px 7px; border-radius: 6px; font-size: 12px; }
+  .p-高 { background: var(--danger-soft); color: var(--danger); }
+  .p-中 { background: var(--warn-soft); color: var(--warn); }
+  .p-低 { background: var(--ok-soft); color: var(--ok); }
+  .late { color: var(--danger); font-weight: 600; }
+  .soon { color: var(--warn); font-weight: 600; }
+  .note-line { font-size: 13px; margin-top: 4px; color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  .fab { position: fixed; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); width: 56px; height: 56px;
+    border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 28px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.2); z-index: 6; }
+  nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: var(--card);
+    border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 7; }
+  nav button { flex: 1; border: 0; background: none; padding: 10px 0 12px; color: var(--muted); font-size: 13px; }
+  nav button.on { color: var(--accent); font-weight: 600; }
+  .selbar { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 8;
+    background: var(--text); color: var(--bg); padding: 10px 16px; display: none; gap: 8px; align-items: center; }
+  .selbar.show { display: flex; }
+  body.has-sel { padding-bottom: calc(124px + env(safe-area-inset-bottom)); }
+  body.has-sel .fab { bottom: calc(132px + env(safe-area-inset-bottom)); }
+  .selbar span { flex: 1; font-size: 14px; }
+  .selbar button { border: 0; border-radius: 8px; padding: 7px 10px; font-size: 13px; background: var(--bg); color: var(--text); }
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; display: none; }
+  .sheet-bg.show { display: block; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; background: var(--card);
+    border-radius: 16px 16px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); z-index: 21;
+    transform: translateY(100%); transition: transform .2s ease; max-width: 640px; margin: 0 auto; }
+  .sheet.show { transform: none; }
+  .sheet h2 { font-size: 17px; margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 15px; background: var(--bg); color: var(--text); font-family: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  .row2 { display: flex; gap: 8px; } .row2 > div { flex: 1; min-width: 0; }
+  .btns { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { flex: 1; padding: 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg);
+    color: var(--text); font-size: 15px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.danger { color: var(--danger); flex: 0 0 auto; }
+  .status-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .log { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .log div { font-size: 13px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .log small { color: var(--muted); display: block; }
+  .list-row { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
+  .list-row .body small { color: var(--muted); }
+  .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 8px 14px; border-radius: 8px; font-size: 14px; z-index: 30; display: none; max-width: 90vw; }
+  .toast.err { background: var(--danger); color: #fff; }
+  .loading { text-align: center; padding: 60px 0; color: var(--muted); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <h1 id="viewTitle">追蹤清單</h1>
+  <div id="itemsHdr">
+    <div class="stats" id="stats"></div>
+    <input class="search" id="q" placeholder="搜尋事項、負責人、說明…" oninput="render()">
+    <div class="chips" id="statusChips"></div>
+    <div class="chips" id="deptChips"></div>
+  </div>
+</header>
+
+<main id="main"><div class="loading">載入中…</div></main>
+
+<button class="fab" id="fab" onclick="openItem()">＋</button>
+
+<div class="selbar" id="selbar">
+  <span id="selCount"></span>
+  <button onclick="bulk('進行中')">進行中</button>
+  <button onclick="bulk('已完成')">完成</button>
+  <button onclick="clearSel()">取消</button>
+</div>
+
+<nav>
+  <button id="nav-items" class="on" onclick="go('items')">📋 事項</button>
+  <button id="nav-people" onclick="go('people')">👥 人員</button>
+  <button id="nav-depts" onclick="go('depts')">🏢 部門</button>
+</nav>
+
+<div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const S = { depts: [], people: [], items: [], statuses: [], priorities: [], today: '',
+  view: 'items', status: '未完成', dept: '全部' };
+const OPEN = ['待處理', '進行中', '等待回覆'];
+
+// ───── 呼叫後端 ─────
+function call(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(resolve)
+      .withFailureHandler(e => { toast(e.message || String(e), true); reject(e); })[fn](...args);
+  });
+}
+
+function load() {
+  call('api_bootstrap').then(d => { Object.assign(S, d); render(); });
+}
+
+// ───── 共用 ─────
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', err ? 4000 : 1800);
+}
+function person(id) { return S.people.find(p => String(p.id) === String(id)); }
+function daysLeft(due) {
+  if (!due) return null;
+  return Math.round((new Date(due + 'T00:00:00') - new Date(S.today + 'T00:00:00')) / 86400000);
+}
+function upsert(list, row) {
+  const i = list.findIndex(x => String(x.id) === String(row.id));
+  if (i >= 0) list[i] = row; else list.push(row);
+}
+function go(view) {
+  S.view = view;
+  ['items', 'people', 'depts'].forEach(v => document.getElementById('nav-' + v).classList.toggle('on', v === view));
+  window.scrollTo(0, 0);
+  render();
+}
+
+// 排序：逾期 → 優先度 → 期限近 → 無期限
+function score(it) {
+  const pr = { '高': 0, '中': 1, '低': 2 }[it.priority] ?? 1;
+  const d = daysLeft(it.due);
+  const late = d != null && d < 0 ? 0 : 1;
+  return [OPEN.includes(it.status) ? 0 : 1, late, pr, d == null ? 99999 : d];
+}
+function cmp(a, b) {
+  const x = score(a), y = score(b);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return String(b.updated_at).localeCompare(String(a.updated_at));
+}
+
+// ───── 畫面 ─────
+function render() {
+  const isItems = S.view === 'items';
+  document.getElementById('itemsHdr').classList.toggle('hidden', !isItems);
+  document.getElementById('viewTitle').textContent = { items: '追蹤清單', people: '人員', depts: '部門' }[S.view];
+  document.getElementById('fab').onclick = { items: () => openItem(), people: () => openPerson(), depts: () => openDept() }[S.view];
+  if (isItems) renderItems(); else if (S.view === 'people') renderPeople(); else renderDepts();
+  renderSelbar();
+}
+
+function renderItems() {
+  const open = S.items.filter(i => OPEN.includes(i.status));
+  const late = open.filter(i => { const d = daysLeft(i.due); return d != null && d < 0; });
+  const soon = open.filter(i => { const d = daysLeft(i.due); return d != null && d >= 0 && d <= 3; });
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><b>${open.length}</b><span>未完成</span></div>
+     <div class="stat alert"><b>${late.length}</b><span>已逾期</span></div>
+     <div class="stat"><b>${soon.length}</b><span>3 天內到期</span></div>`;
+
+  const statusOpts = ['未完成', '全部', ...S.statuses];
+  document.getElementById('statusChips').innerHTML = statusOpts.map(s =>
+    `<button class="chip ${S.status === s ? 'on' : ''}" onclick="S.status='${s}';render()">${s}</button>`).join('');
+  const deptOpts = ['全部', ...S.depts.map(d => d.name)];
+  document.getElementById('deptChips').innerHTML = deptOpts.map(d =>
+    `<button class="chip ${S.dept === d ? 'on' : ''}" onclick="S.dept=this.dataset.d;render()" data-d="${esc(d)}">${esc(d)}</button>`).join('');
+
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const list = S.items.filter(i => {
+    if (S.status === '未完成' && !OPEN.includes(i.status)) return false;
+    if (S.status !== '未完成' && S.status !== '全部' && i.status !== S.status) return false;
+    if (S.dept !== '全部' && i.dept !== S.dept) return false;
+    if (q) {
+      const p = person(i.owner);
+      const hay = [i.title, i.detail, i.note, i.dept, p && p.name].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort(cmp);
+
+  const main = document.getElementById('main');
+  if (!list.length) {
+    main.innerHTML = `<div class="empty">${S.items.length ? '沒有符合條件的事項' : '還沒有事項，按右下角 ＋ 新增第一筆'}</div>`;
+    return;
+  }
+  main.innerHTML = list.map(itemCard).join('');
+}
+
+function itemCard(i) {
+  const p = person(i.owner);
+  const d = daysLeft(i.due);
+  let dueTxt = '';
+  if (i.due) {
+    const cls = !OPEN.includes(i.status) ? '' : d < 0 ? 'late' : d <= 3 ? 'soon' : '';
+    const rel = d < 0 ? `逾期 ${-d} 天` : d === 0 ? '今天到期' : `${d} 天後`;
+    dueTxt = `<span class="${cls}">📅 ${esc(i.due.slice(5))}${OPEN.includes(i.status) ? '（' + rel + '）' : ''}</span>`;
+  }
+  return `<div class="item ${i.selected ? 'sel' : ''} ${i.status === '已完成' ? 'done' : ''}">
+    <div class="check" onclick="toggleSel('${i.id}')">${i.selected ? '✓' : ''}</div>
+    <div class="body" onclick="openItem('${i.id}')">
+      <div class="title">${esc(i.title)}</div>
+      <div class="meta">
+        <span class="tag p-${esc(i.priority)}">${esc(i.priority)}</span>
+        ${i.dept ? `<span>${esc(i.dept)}</span>` : ''}
+        ${p ? `<span>👤 ${esc(p.name)}</span>` : '<span>👤 未指派</span>'}
+        ${dueTxt}
+        <span>· ${esc(i.status)}</span>
+      </div>
+      ${i.note ? `<div class="note-line">💬 ${esc(i.note)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPeople() {
+  const main = document.getElementById('main');
+  if (!S.people.length) { main.innerHTML = '<div class="empty">還沒有人員，按 ＋ 新增負責人</div>'; return; }
+  const byDept = {};
+  S.people.forEach(p => (byDept[p.dept || '未分部門'] = byDept[p.dept || '未分部門'] || []).push(p));
+  main.innerHTML = Object.keys(byDept).map(d =>
+    `<div class="group-title">${esc(d)}</div>` + byDept[d].map(p => {
+      const n = S.items.filter(i => String(i.owner) === String(p.id) && OPEN.includes(i.status)).length;
+      return `<div class="list-row" onclick="openPerson('${p.id}')"><div class="body">
+        <div>${esc(p.name)}</div><small>${esc(p.email || '未填 Email')} · 未完成 ${n} 項</small></div></div>`;
+    }).join('')).join('');
+}
+
+function renderDepts() {
+  document.getElementById('main').innerHTML = S.depts.map(d => {
+    const n = S.items.filter(i => i.dept === d.name && OPEN.includes(i.status)).length;
+    return `<div class="list-row" onclick="openDept('${d.id}')"><div class="body">
+      <div>${esc(d.name)}</div><small>未完成 ${n} 項</small></div></div>`;
+  }).join('') || '<div class="empty">還沒有部門</div>';
+}
+
+function renderSelbar() {
+  const n = S.items.filter(i => i.selected).length;
+  const bar = document.getElementById('selbar');
+  bar.classList.toggle('show', S.view === 'items' && n > 0);
+  document.body.classList.toggle('has-sel', S.view === 'items' && n > 0);
+  document.getElementById('selCount').textContent = `已勾選 ${n} 項`;
+}
+
+// ───── 勾選 ─────
+function toggleSel(id) {
+  const it = S.items.find(i => i.id === id);
+  it.selected = !it.selected; render();
+  call('api_setSelected', [id], it.selected).then(rows => rows.forEach(r => upsert(S.items, r)));
+}
+function clearSel() {
+  const ids = S.items.filter(i => i.selected).map(i => i.id);
+  S.items.forEach(i => i.selected = false); render();
+  call('api_setSelected', ids, false);
+}
+function bulk(status) {
+  const ids = S.items.filter(i => i.selected).map(i => i.id);
+  call('api_bulkStatus', ids, status).then(rows => {
+    rows.forEach(r => upsert(S.items, r)); render(); toast(`${rows.length} 項改為「${status}」`);
+  });
+}
+
+// ───── 底部表單 ─────
+function openSheet(html) {
+  const sh = document.getElementById('sheet');
+  sh.innerHTML = html; sh.scrollTop = 0;
+  document.getElementById('sheetBg').classList.add('show');
+  sh.classList.add('show');
+}
+function closeSheet() {
+  document.getElementById('sheetBg').classList.remove('show');
+  document.getElementById('sheet').classList.remove('show');
+}
+function opts(list, cur, blank) {
+  return (blank ? `<option value="">${blank}</option>` : '') +
+    list.map(o => { const v = typeof o === 'object' ? o.v : o, t = typeof o === 'object' ? o.t : o;
+      return `<option value="${esc(v)}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(t)}</option>`; }).join('');
+}
+function val(id) { return document.getElementById(id).value; }
+
+function openItem(id) {
+  const i = id ? S.items.find(x => x.id === id) : { priority: '中', status: '待處理', dept: S.dept !== '全部' ? S.dept : '' };
+  const ppl = S.people.filter(p => p.active !== false).map(p => ({ v: p.id, t: p.name + (p.dept ? '（' + p.dept + '）' : '') }));
+  openSheet(`
+    <h2>${id ? '事項' : '新增事項'}</h2>
+    <label>標題</label><input id="f-title" value="${esc(i.title)}" placeholder="要追蹤的事">
+    <label>內容說明</label><textarea id="f-detail" placeholder="背景、要求、驗收標準…">${esc(i.detail)}</textarea>
+    <div class="row2">
+      <div><label>部門</label><select id="f-dept">${opts(S.depts.map(d => d.name), i.dept, '未指定')}</select></div>
+      <div><label>負責人</label><select id="f-owner">${opts(ppl, i.owner, '未指派')}</select></div>
+    </div>
+    <div class="row2">
+      <div><label>期限</label><input id="f-due" type="date" value="${esc(i.due)}"></div>
+      <div><label>優先</label><select id="f-priority">${opts(S.priorities, i.priority)}</select></div>
+    </div>
+    <div class="row2">
+      <div><label>狀態</label><select id="f-status">${opts(S.statuses, i.status)}</select></div>
+      <div><label>下次追蹤</label><input id="f-follow" type="date" value="${esc(i.next_followup)}"></div>
+    </div>
+    <div class="btns">
+      ${id ? `<button class="btn danger" onclick="delItem('${id}')">刪除</button>` : ''}
+      <button class="btn" onclick="closeSheet()">取消</button>
+      <button class="btn primary" onclick="saveItem('${id || ''}')">儲存</button>
+    </div>
+    ${id ? `
+    <label>補充說明（會記錄在追蹤紀錄）</label>
+    <textarea id="f-note" placeholder="例如：已和對方確認，下週三前交初稿"></textarea>
+    <div class="btns" style="margin-top:8px"><button class="btn" onclick="addNote('${id}')">加入補充說明</button></div>
+    <div class="log" id="log"><small>載入追蹤紀錄…</small></div>` : ''}
+  `);
+  // 部門改變時，負責人只列該部門的人
+  document.getElementById('f-dept').onchange = e => {
+    const d = e.target.value, cur = val('f-owner');
+    const list = S.people.filter(p => p.active !== false && (!d || p.dept === d))
+      .map(p => ({ v: p.id, t: p.name + (p.dept ? '（' + p.dept + '）' : '') }));
+    document.getElementById('f-owner').innerHTML = opts(list, cur, '未指派');
+  };
+  document.getElementById('f-owner').onchange = e => {
+    const p = person(e.target.value);
+    if (p && p.dept && !val('f-dept')) document.getElementById('f-dept').value = p.dept;
+  };
+  if (id) call('api_getLog', id).then(rows => {
+    document.getElementById('log').innerHTML = '<label style="margin-top:0">追蹤紀錄</label>' + (rows.map(r =>
+      `<div><small>${esc(r.at)} · ${esc(r.action)}</small>${esc(r.content)}</div>`).join('') || '<small>尚無紀錄</small>');
+  });
+}
+
+function saveItem(id) {
+  const data = { id: id || undefined, title: val('f-title'), detail: val('f-detail'), dept: val('f-dept'),
+    owner: val('f-owner'), due: val('f-due'), priority: val('f-priority'), status: val('f-status'),
+    next_followup: val('f-follow') };
+  call('api_saveItem', data).then(row => { upsert(S.items, row); closeSheet(); render(); toast('已儲存'); });
+}
+function delItem(id) {
+  if (!confirm('確定刪除這個事項？')) return;
+  call('api_deleteItem', id).then(() => {
+    S.items = S.items.filter(i => i.id !== id); closeSheet(); render(); toast('已刪除');
+  });
+}
+function addNote(id) {
+  const text = val('f-note');
+  call('api_addNote', id, text).then(row => { upsert(S.items, row); render(); toast('已加入補充說明'); openItem(id); });
+}
+
+function openPerson(id) {
+  const p = id ? person(id) : { active: true };
+  openSheet(`
+    <h2>${id ? '編輯人員' : '新增人員'}</h2>
+    <label>姓名</label><input id="p-name" value="${esc(p.name)}">
+    <label>部門</label><select id="p-dept">${opts(S.depts.map(d => d.name), p.dept, '未指定')}</select>
+    <label>Email（發佈事項時寄到這裡）</label><input id="p-email" type="email" value="${esc(p.email)}" placeholder="name@company.com">
+    <label>LINE ID（第二階段使用，可先空白）</label><input id="p-line" value="${esc(p.line_id)}">
+    <div class="btns">
+      ${id ? `<button class="btn danger" onclick="delPerson('${id}')">刪除</button>` : ''}
+      <button class="btn" onclick="closeSheet()">取消</button>
+      <button class="btn primary" onclick="savePerson('${id || ''}')">儲存</button>
+    </div>`);
+}
+function savePerson(id) {
+  call('api_savePerson', { id: id || undefined, name: val('p-name'), dept: val('p-dept'),
+    email: val('p-email').trim(), line_id: val('p-line').trim() })
+    .then(row => { upsert(S.people, row); closeSheet(); render(); toast('已儲存'); });
+}
+function delPerson(id) {
+  if (!confirm('確定刪除這位人員？')) return;
+  call('api_deletePerson', id).then(() => {
+    S.people = S.people.filter(p => p.id !== id); closeSheet(); render(); toast('已刪除');
+  });
+}
+
+function openDept(id) {
+  const d = id ? S.depts.find(x => x.id === id) : {};
+  openSheet(`
+    <h2>${id ? '編輯部門' : '新增部門'}</h2>
+    <label>部門名稱</label><input id="d-name" value="${esc(d.name)}">
+    <div class="btns">
+      ${id ? `<button class="btn danger" onclick="delDept('${id}')">刪除</button>` : ''}
+      <button class="btn" onclick="closeSheet()">取消</button>
+      <button class="btn primary" onclick="saveDept('${id || ''}')">儲存</button>
+    </div>`);
+}
+function saveDept(id) {
+  call('api_saveDept', { id: id || undefined, name: val('d-name') })
+    .then(() => { closeSheet(); load(); toast('已儲存'); });
+}
+function delDept(id) {
+  if (!confirm('確定刪除這個部門？')) return;
+  call('api_deleteDept', id).then(() => {
+    S.depts = S.depts.filter(d => d.id !== id); closeSheet(); render(); toast('已刪除');
+  });
+}
+
+load();
+</script>
+</body>
+</html>
