@@ -28,14 +28,14 @@ const PRIORITIES = ['高', '中', '低'];
 // ───────────────────────── 進入點 ─────────────────────────
 
 function doGet() {
-  ensureSchema_();
+  setup();
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('專案管理員')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
-/** 第一次使用時在編輯器手動執行一次：建立分頁並放入預設部門。 */
+/** 建立分頁並放入預設部門；第一次開網頁時會自動執行，也可在編輯器手動執行。 */
 function setup() {
   ensureSchema_();
   if (readAll_('dept').length === 0) {
